@@ -1,4 +1,4 @@
-const Product = require('../models/Students'); // Using existing Students model
+const Product = require('../models/product'); // Using existing Students model
 
 const ProductController = {
     // List all products (for both inventory and shopping)
