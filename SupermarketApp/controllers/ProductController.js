@@ -17,7 +17,10 @@ const ProductController = {
             });
         });
     },
-
+    //
+    ////
+//
+///
     // Get single product
     getProductById: (req, res) => {
         const id = req.params.id;
