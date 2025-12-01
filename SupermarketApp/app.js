@@ -152,6 +152,18 @@ app.get('/cart', checkAuthenticated, (req, res) => {
     });
 });
 
+// My Orders page (for now, just an empty list)
+app.get('/orders', checkAuthenticated, (req, res) => {
+    // later you can load real orders from the database
+    const orders = [];   
+
+    res.render('orders', {
+        user: req.session.user,
+        orders: orders
+    });
+});
+
+
 // Authentication routes
 app.get('/register', (req, res) => {
     res.render('register', {
