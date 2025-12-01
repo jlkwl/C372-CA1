@@ -39,20 +39,42 @@ const Order = {
 
                     const orderId = orderResult.insertId;
                     const insertItemSql = 'INSERT INTO order_items (orderId, productId, quantity, priceAtTime) VALUES (?, ?, ?, ?)';
+                    const updateStockSql = 'UPDATE products SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?';
 
                     const insertNext = (idx) => {
                         if (idx >= cartItems.length) {
-                            return conn.commit(commitErr => {
-                                if (commitErr) {
-                                    console.error('Commit error:', commitErr);
-                                    return conn.rollback(() => {
+                            // after inserting all items, update stock for each item
+                            const updateNext = (uIdx) => {
+                                if (uIdx >= cartItems.length) {
+                                    return conn.commit(commitErr => {
+                                        if (commitErr) {
+                                            console.error('Commit error:', commitErr);
+                                            return conn.rollback(() => {
+                                                if (conn.release) conn.release();
+                                                return callback(commitErr);
+                                            });
+                                        }
                                         if (conn.release) conn.release();
-                                        return callback(commitErr);
+                                        return callback(null, { orderId, totalAmount });
                                     });
                                 }
-                                if (conn.release) conn.release();
-                                return callback(null, { orderId, totalAmount });
-                            });
+
+                                const item = cartItems[uIdx];
+                                const qty = Number(item.quantity) || 0;
+                                const pid = item.productId;
+                                conn.query(updateStockSql, [qty, pid], (updateErr) => {
+                                    if (updateErr) {
+                                        console.error('Update stock error:', updateErr);
+                                        return conn.rollback(() => {
+                                            if (conn.release) conn.release();
+                                            return callback(updateErr);
+                                        });
+                                    }
+                                    updateNext(uIdx + 1);
+                                });
+                            };
+
+                            return updateNext(0);
                         }
 
                         const item = cartItems[idx];
@@ -103,16 +125,35 @@ const Order = {
 
                     const orderId = orderResult.insertId;
                     const insertItemSql = 'INSERT INTO order_items (orderId, productId, quantity, priceAtTime) VALUES (?, ?, ?, ?)';
+                    const updateStockSql = 'UPDATE products SET quantity = GREATEST(quantity - ?, 0) WHERE id = ?';
 
                     const insertNext = (idx) => {
                         if (idx >= cartItems.length) {
-                            return db.query('COMMIT', (commitErr) => {
-                                if (commitErr) {
-                                    console.error('COMMIT error:', commitErr);
-                                    return db.query('ROLLBACK', () => callback(commitErr));
+                            // update stock sequentially
+                            const updateNext = (uIdx) => {
+                                if (uIdx >= cartItems.length) {
+                                    return db.query('COMMIT', (commitErr) => {
+                                        if (commitErr) {
+                                            console.error('COMMIT error:', commitErr);
+                                            return db.query('ROLLBACK', () => callback(commitErr));
+                                        }
+                                        return callback(null, { orderId, totalAmount });
+                                    });
                                 }
-                                return callback(null, { orderId, totalAmount });
-                            });
+
+                                const item = cartItems[uIdx];
+                                const qty = Number(item.quantity) || 0;
+                                const pid = item.productId;
+                                db.query(updateStockSql, [qty, pid], (updateErr) => {
+                                    if (updateErr) {
+                                        console.error('Update stock error:', updateErr);
+                                        return db.query('ROLLBACK', () => callback(updateErr));
+                                    }
+                                    updateNext(uIdx + 1);
+                                });
+                            };
+
+                            return updateNext(0);
                         }
 
                         const item = cartItems[idx];

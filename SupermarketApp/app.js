@@ -111,55 +111,85 @@ app.get('/deleteProduct/:id', checkAuthenticated, checkAdmin,
 // Cart functionality
 app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     const productId = parseInt(req.params.id);
-    const quantity = parseInt(req.body.quantity) || 1;
+    const quantityToAdd = parseInt(req.body.quantity, 10) || 1;
 
     productController.fetchProductById(productId, (err, product) => {
         if (err) {
             req.flash('error', 'Error adding to cart');
             return res.redirect('/shopping');
         }
-        
+
         if (!product) {
             req.flash('error', 'Product not found');
             return res.redirect('/shopping');
         }
 
-        if (!req.session.cart) {
-            req.session.cart = [];
-        }
+        if (!req.session.cart) req.session.cart = [];
 
-        const existingItem = req.session.cart.find(item => item.productId === productId);
+        const available = Number(product.quantity) || 0;
+        const existingItem = req.session.cart.find(item => String(item.productId) === String(productId));
+
         if (existingItem) {
-            existingItem.quantity += quantity;
+            const newTotal = Number(existingItem.quantity || 0) + Number(quantityToAdd || 0);
+            if (newTotal > available) {
+                existingItem.quantity = available;
+                req.flash('error', `Only ${available} units of ${product.productName} are available.`);
+            } else {
+                existingItem.quantity = newTotal;
+            }
         } else {
-            req.session.cart.push({
-                productId: product.id,
-                productName: product.productName,
-                price: product.price,
-                quantity: quantity,
-                image: product.image
-            });
+            let addQty = Number(quantityToAdd || 0);
+            if (addQty > available) {
+                addQty = available;
+                req.flash('error', `Only ${available} units of ${product.productName} are available.`);
+            }
+
+            if (addQty > 0) {
+                req.session.cart.push({
+                    productId: product.id,
+                    productName: product.productName,
+                    price: product.price,
+                    quantity: addQty,
+                    image: product.image
+                });
+            } else {
+                // nothing to add (out of stock)
+                req.flash('error', `${product.productName} is out of stock.`);
+            }
         }
 
-        res.redirect('/cart');
+        return res.redirect('/cart');
     });
 });
 
 app.get('/cart', checkAuthenticated, (req, res) => {
     res.render('cart', { 
+        cart: req.session.cart || [],
+        user: req.session.user,
+        errors: req.flash('error') || [],
+        messages: req.flash('success') || []
+    });
+});
+
+
+app.get('/cart', checkAuthenticated, (req, res) => {
+    res.render('cart', { 
         cart: req.session.cart || [], 
-        user: req.session.user 
+        user: req.session.user,
+        errors: req.flash('error'),
+        messages: req.flash('success')
     });
 });
 
 // My Orders page (for now, just an empty list)
 app.get('/orders', checkAuthenticated, (req, res) => {
-    // later you can load real orders from the database
-    const orders = [];   
+    const orders = []; // later you can load real orders from DB
 
     res.render('orders', {
         user: req.session.user,
-        orders: orders
+        orders: orders,
+        errors: req.flash('error'),
+        messages: req.flash('success')
     });
 });
 
