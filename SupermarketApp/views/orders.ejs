@@ -34,28 +34,63 @@
 <div class="container mt-5 page-card">
     <h2>My Orders</h2>
 
-    <% if (!orders || orders.length === 0) { %>
-        <p>You have no orders yet.</p>
-    <% } else { %>
-        <table class="table table-striped mt-4">
-            <thead>
-                <tr>
-                    <th>Order ID</th>
-                    <th>Date</th>
-                    <th>Total Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                <% orders.forEach(order => { %>
-                    <tr>
-                        <td><%= order.id %></td>
-                        <td><%= order.date %></td>
-                        <td>$<%= order.total %></td>
-                    </tr>
+    <header>
+        <% if (user) { %>
+            <p>Welcome, <%= user.name || user.username || 'User' %></p>
+        <% } %>
+    </header>
+
+    <section class="messages">
+        <% if (messages && messages.error && messages.error.length) { %>
+            <div class="errors">
+                <% messages.error.forEach(function(e){ %>
+                    <p class="error"><%= e %></p>
                 <% }) %>
-            </tbody>
-        </table>
-    <% } %>
+            </div>
+        <% } %>
+
+        <% if (messages && messages.success && messages.success.length) { %>
+            <div class="successes">
+                <% messages.success.forEach(function(m){ %>
+                    <p class="success"><%= m %></p>
+                <% }) %>
+            </div>
+        <% } %>
+    </section>
+
+    <section class="orders">
+        <% if (!orders || orders.length === 0) { %>
+            <p>No orders found.</p>
+            <a href="/shopping">Go shopping</a>
+        <% } else { %>
+            <table class="table table-striped mt-4">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Total Amount</th>
+                        <th>Status</th>
+                        <th>User</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% orders.forEach(function(o){ %>
+                        <tr>
+                            <td><%= o.orderId %></td>
+                            <td><%= o.orderDate ? new Date(o.orderDate).toLocaleString() : '' %></td>
+                            <td>$<%= Number(o.totalAmount || 0).toFixed(2) %></td>
+                            <td><%= o.status %></td>
+                            <td><%= o.userName || '' %></td>
+                            <td>
+                                <a href="/order/<%= o.orderId %>">View</a>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        <% } %>
+    </section>
 </div>
 
 </body>

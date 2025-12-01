@@ -6,8 +6,9 @@ const flash = require('connect-flash');
 const multer = require('multer');
 const app = express();
 
-// Import the controller (we'll use StudentController for products)
+// Import the controllers
 const productController = require('./controllers/ProductController');
+const OrderController = require('./controllers/OrderController'); // added
 
 // Multer configuration
 const storage = multer.diskStorage({
@@ -259,6 +260,15 @@ app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/');
 });
+
+// Checkout route (new)
+app.post('/checkout', checkAuthenticated, OrderController.checkout);
+
+// Replace the stubbed orders page with the controller-backed route
+app.get('/orders', checkAuthenticated, OrderController.listUserOrders);
+
+// View single order
+app.get('/order/:id', checkAuthenticated, OrderController.viewOrder);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}/`));

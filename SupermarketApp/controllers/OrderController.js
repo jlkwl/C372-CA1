@@ -16,37 +16,20 @@ const OrderController = {
             return res.redirect('/login');
         }
 
-        // Create order from cart using model
+        // Create order from cart using model (transaction includes stock decrement)
         Order.createOrderFromCart(userId, cart, (err, createdOrder) => {
             if (err) {
                 console.error('Order.createOrderFromCart error:', err);
-                req.flash('error', 'Failed to create order. Please try again.');
+                // If error contains "Insufficient stock" text, show that message; otherwise generic
+                const msg = err.message || 'Failed to create order. Please try again.';
+                req.flash('error', msg);
                 return res.redirect('/cart');
             }
 
-            // Attempt to determine orderId and total from createdOrder; fallbacks applied
-            const orderId = (createdOrder && (createdOrder.insertId || createdOrder.orderId)) || null;
-            const total = (cart.reduce((sum, item) => {
-                const price = Number(item.price) || 0;
-                const qty = Number(item.quantity) || 0;
-                return sum + price * qty;
-            }, 0));
-
-            // Clear the cart
+            // Success - clear cart and redirect to orders history
             req.session.cart = [];
-
-            req.flash('success', 'Checkout successful.');
-
-            // Render confirmation view with order details
-            return res.render('checkoutSuccess', {
-                orderId,
-                total: Number(total.toFixed(2)),
-                user: req.session.user,
-                messages: {
-                    success: req.flash('success'),
-                    error: req.flash('error')
-                }
-            });
+            req.flash('success', 'Order placed successfully!');
+            return res.redirect('/orders');
         });
     },
 
