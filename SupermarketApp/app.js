@@ -6,9 +6,9 @@ const flash = require('connect-flash');
 const multer = require('multer');
 const app = express();
 
-// Import the controllers
+// Controllers
 const productController = require('./controllers/ProductController');
-const OrderController = require('./controllers/OrderController'); // added
+const OrderController = require('./controllers/OrderController');
 
 // Multer configuration
 const storage = multer.diskStorage({
@@ -61,7 +61,7 @@ const validateRegistration = (req, res, next) => {
     if (!username || !email || !password || !address || !contact || !role) {
         return res.status(400).send('All fields are required.');
     }
-    
+
     if (password.length < 6) {
         req.flash('error', 'Password should be at least 6 or more characters long');
         req.flash('formData', req.body);
@@ -70,7 +70,8 @@ const validateRegistration = (req, res, next) => {
     next();
 };
 
-// Product Routes
+// ====================== PRODUCT & HOME ROUTES ======================
+
 app.get('/', (req, res) => {
     res.render('index', { user: req.session.user });
 });
@@ -89,27 +90,39 @@ app.get('/addProduct', checkAuthenticated, checkAdmin, (req, res) => {
     res.render('addProduct', { user: req.session.user });
 });
 
-app.post('/addProduct', checkAuthenticated, checkAdmin, 
+app.post(
+    '/addProduct',
+    checkAuthenticated,
+    checkAdmin,
     upload.single('image'),
     productController.addProduct
 );
 
 // Update product routes
-app.get('/updateProduct/:id', checkAuthenticated, checkAdmin,
+app.get('/updateProduct/:id',
+    checkAuthenticated,
+    checkAdmin,
     productController.renderUpdateProductForm
 );
 
-app.post('/updateProduct/:id', checkAuthenticated, checkAdmin,
+app.post(
+    '/updateProduct/:id',
+    checkAuthenticated,
+    checkAdmin,
     upload.single('image'),
     productController.updateProduct
 );
 
 // Delete product
-app.get('/deleteProduct/:id', checkAuthenticated, checkAdmin,
+app.get('/deleteProduct/:id',
+    checkAuthenticated,
+    checkAdmin,
     productController.deleteProduct
 );
 
-// Cart functionality
+// ====================== CART ROUTES ======================
+
+// Add to cart
 app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     const productId = parseInt(req.params.id);
     const quantityToAdd = parseInt(req.body.quantity, 10) || 1;
@@ -128,13 +141,21 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
         if (!req.session.cart) req.session.cart = [];
 
         const available = Number(product.quantity) || 0;
-        const existingItem = req.session.cart.find(item => String(item.productId) === String(productId));
+        const existingItem = req.session.cart.find(
+            item => String(item.productId) === String(productId)
+        );
 
         if (existingItem) {
-            const newTotal = Number(existingItem.quantity || 0) + Number(quantityToAdd || 0);
+            const newTotal =
+                Number(existingItem.quantity || 0) +
+                Number(quantityToAdd || 0);
+
             if (newTotal > available) {
                 existingItem.quantity = available;
-                req.flash('error', `Only ${available} units of ${product.productName} are available.`);
+                req.flash(
+                    'error',
+                    `Only ${available} units of ${product.productName} are available.`
+                );
             } else {
                 existingItem.quantity = newTotal;
             }
@@ -142,7 +163,10 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
             let addQty = Number(quantityToAdd || 0);
             if (addQty > available) {
                 addQty = available;
-                req.flash('error', `Only ${available} units of ${product.productName} are available.`);
+                req.flash(
+                    'error',
+                    `Only ${available} units of ${product.productName} are available.`
+                );
             }
 
             if (addQty > 0) {
@@ -154,7 +178,6 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
                     image: product.image
                 });
             } else {
-                // nothing to add (out of stock)
                 req.flash('error', `${product.productName} is out of stock.`);
             }
         }
@@ -163,39 +186,18 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     });
 });
 
+// Show cart
 app.get('/cart', checkAuthenticated, (req, res) => {
-    res.render('cart', { 
+    res.render('cart', {
         cart: req.session.cart || [],
         user: req.session.user,
-        errors: req.flash('error') || [],
-        messages: req.flash('success') || []
-    });
-});
-
-
-app.get('/cart', checkAuthenticated, (req, res) => {
-    res.render('cart', { 
-        cart: req.session.cart || [], 
-        user: req.session.user,
         errors: req.flash('error'),
         messages: req.flash('success')
     });
 });
 
-// My Orders page (for now, just an empty list)
-app.get('/orders', checkAuthenticated, (req, res) => {
-    const orders = []; // later you can load real orders from DB
+// ====================== AUTH ROUTES ======================
 
-    res.render('orders', {
-        user: req.session.user,
-        orders: orders,
-        errors: req.flash('error'),
-        messages: req.flash('success')
-    });
-});
-
-
-// Authentication routes
 app.get('/register', (req, res) => {
     res.render('register', {
         messages: req.flash('error'),
@@ -204,18 +206,22 @@ app.get('/register', (req, res) => {
 });
 
 app.post('/register', validateRegistration, (req, res) => {
-
     const { username, email, password, address, contact, role } = req.body;
 
-    const sql = 'INSERT INTO users (username, email, password, address, contact, role) VALUES (?, ?, SHA1(?), ?, ?, ?)';
-    connection.query(sql, [username, email, password, address, contact, role], (err, result) => {
-        if (err) {
-            throw err;
+    const sql =
+        'INSERT INTO users (username, email, password, address, contact, role) VALUES (?, ?, SHA1(?), ?, ?, ?)';
+    connection.query(
+        sql,
+        [username, email, password, address, contact, role],
+        (err, result) => {
+            if (err) {
+                throw err;
+            }
+            console.log(result);
+            req.flash('success', 'Registration successful! Please log in.');
+            res.redirect('/login');
         }
-        console.log(result);
-        req.flash('success', 'Registration successful! Please log in.');
-        res.redirect('/login');
-    });
+    );
 });
 
 app.get('/login', (req, res) => {
@@ -228,28 +234,27 @@ app.get('/login', (req, res) => {
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
 
-    // Validate email and password
     if (!email || !password) {
         req.flash('error', 'All fields are required.');
         return res.redirect('/login');
     }
 
-    const sql = 'SELECT * FROM users WHERE email = ? AND password = SHA1(?)';
+    const sql =
+        'SELECT * FROM users WHERE email = ? AND password = SHA1(?)';
     connection.query(sql, [email, password], (err, results) => {
         if (err) {
             throw err;
         }
 
         if (results.length > 0) {
-            // Successful login
-            req.session.user = results[0]; 
+            req.session.user = results[0];
             req.flash('success', 'Login successful!');
-            if(req.session.user.role == 'user')
+            if (req.session.user.role === 'user') {
                 res.redirect('/shopping');
-            else
+            } else {
                 res.redirect('/inventory');
+            }
         } else {
-            // Invalid credentials
             req.flash('error', 'Invalid email or password.');
             res.redirect('/login');
         }
@@ -261,14 +266,21 @@ app.get('/logout', (req, res) => {
     res.redirect('/');
 });
 
-// Checkout route (new)
+// ====================== ORDER ROUTES ======================
+
+// Checkout: create order from cart, update inventory, clear cart
 app.post('/checkout', checkAuthenticated, OrderController.checkout);
 
-// Replace the stubbed orders page with the controller-backed route
+// List current user's orders
 app.get('/orders', checkAuthenticated, OrderController.listUserOrders);
 
-// View single order
+// View single order details
 app.get('/order/:id', checkAuthenticated, OrderController.viewOrder);
 
+// ====================== START SERVER ======================
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}/`));
+app.listen(PORT, () =>
+    console.log(`Server running on http://localhost:${PORT}/`)
+);
+
