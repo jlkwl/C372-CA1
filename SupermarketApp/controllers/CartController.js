@@ -1,3 +1,4 @@
+// controllers/CartController.js
 const Product = require('../models/product');
 const Cart = require('../models/Cart');
 
@@ -28,6 +29,21 @@ const CartController = {
                     return res.redirect('/shopping');
                 }
 
+                const availableQty = Number(product.quantity || 0);
+
+                // ✅ HARD CHECK: out of stock
+                if (availableQty <= 0) {
+                    req.flash('error', `Sorry, "${product.productName}" is out of stock.`);
+                    return res.redirect('/shopping');
+                }
+
+                // ✅ HARD CHECK: requested more than stock
+                if (quantity > availableQty) {
+                    req.flash('error', `Only ${availableQty} unit(s) of "${product.productName}" are left in stock.`);
+                    return res.redirect('/shopping');
+                }
+
+                // All good – add to cart
                 Cart.addItem(req, product, quantity);
                 req.flash('success', 'Product added to cart.');
                 return res.redirect('/shopping');
@@ -86,6 +102,7 @@ const CartController = {
         return res.redirect('/cart');
     },
 
+    // (optional old checkout not used anymore if you use OrderController.checkout)
     checkout: (req, res) => {
         const cart = Cart.getCart(req) || [];
         if (!Array.isArray(cart) || cart.length === 0) {
@@ -95,13 +112,8 @@ const CartController = {
 
         const total = Cart.getTotal(cart);
 
-        // Here you would normally create an order / persist to DB.
-        // For CA1 exercise we clear the cart and show confirmation.
-
         Cart.clearCart(req);
         req.flash('success', `Checkout successful. Total: ${total.toFixed(2)}`);
-
-        // Redirect to shopping or render confirmation. Project has no invoice view, redirect to shopping.
         return res.redirect('/shopping');
     }
 };
