@@ -3,94 +3,215 @@
 <head>
     <meta charset="utf-8" />
     <title>Your Cart</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="/css/style.css" />
+
+    <style>
+        body {
+            background: #f7f7f7;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .cart-container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .welcome-text {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        th {
+            background: #f0f0f0;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        td {
+            padding: 12px;
+            vertical-align: middle;
+        }
+
+        td img {
+            border-radius: 8px;
+        }
+
+        input[type="number"] {
+            width: 70px;
+            padding: 5px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        .remove-btn {
+            background: #d9534f;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .remove-btn:hover {
+            background: #c9302c;
+        }
+
+        .cart-summary {
+            text-align: right;
+            margin-top: 20px;
+        }
+
+        .total-text {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .checkout-btn {
+            background: #005EB8;
+            border: none;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-right: 8px;
+        }
+
+        .checkout-btn:hover {
+            background: #004a94;
+        }
+
+        .clear-btn {
+            background: #777;
+            border: none;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-right: 8px;
+        }
+
+        .clear-btn:hover {
+            background: #555;
+        }
+
+        .continue-link {
+            font-size: 16px;
+            text-decoration: none;
+            color: #005EB8;
+            font-weight: bold;
+        }
+
+        .continue-link:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-    <header>
+
+    <div class="cart-container">
+
         <h1>Your Cart</h1>
+
         <% if (user) { %>
-            <p>Welcome, <%= user.name || user.username || 'User' %></p>
-        <% } %>
-    </header>
-
-    <section class="messages">
-        <% if (errors && errors.length) { %>
-            <div class="errors">
-                <% errors.forEach(function(e){ %>
-                    <p class="error"><%= e %></p>
-                <% }) %>
-            </div>
+            <p class="welcome-text">Welcome, <%= user.username || user.name || "User" %></p>
         <% } %>
 
-        <% if (messages && messages.length) { %>
-            <div class="messages-list">
-                <% messages.forEach(function(m){ %>
-                    <p class="success"><%= m %></p>
-                <% }) %>
-            </div>
-        <% } %>
-    </section>
-
-    <section class="cart">
         <% if (!cart || cart.length === 0) { %>
+
             <p>Your cart is empty.</p>
-            <a href="/shopping">Continue shopping</a>
+            <a href="/shopping" class="continue-link">Continue shopping</a>
+
         <% } else { %>
-            <form action="/cart/update" method="post">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Image</th>
-                            <th>Product</th>
-                            <th>Price</th>
-                            <th>Quantity</th>
-                            <th>Subtotal</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% cart.forEach(function(item){ %>
-                            <tr>
-                                <td>
-                                    <% if (item.image) { %>
-                                        <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="width:80px"/>
-                                    <% } %>
-                                </td>
-                                <td><%= item.productName %></td>
-                                <td>$<%= Number(item.price).toFixed(2) %></td>
-                                <td>
-                                    <input type="number" name="quantity" value="<%= item.quantity %>" min="1" />
-                                    <input type="hidden" name="productId" value="<%= item.productId %>"/>
-                                </td>
-                                <td>$<%= (Number(item.price) * Number(item.quantity)).toFixed(2) %></td>
-                                <td>
-                                    <form action="/remove-from-cart/<%= item.productId %>" method="post" style="display:inline">
-                                        <button type="submit">Remove</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        <% }) %>
-                    </tbody>
-                </table>
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th style="width:120px;">Image</th>
+                    <th>Product</th>
+                    <th>Price</th>
+                    <th style="width:100px;">Quantity</th>
+                    <th>Subtotal</th>
+                    <th style="width:100px;">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <% cart.forEach(function(item){ %>
+                <tr>
+                    <td>
+                        <% if (item.image) { %>
+                            <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="width:80px;">
+                        <% } %>
+                    </td>
+
+                    <td><strong><%= item.productName %></strong></td>
+
+                    <td>$<%= Number(item.price).toFixed(2) %></td>
+
+                    <td>
+                        <form action="/cart/update" method="post">
+                            <input type="number" name="quantity" min="1" value="<%= item.quantity %>">
+                            <input type="hidden" name="productId" value="<%= item.productId %>">
+                            <button style="display:none;"></button>
+                        </form>
+                    </td>
+
+                    <td>$<%= (item.price * item.quantity).toFixed(2) %></td>
+
+                    <td>
+                        <form action="/remove-from-cart/<%= item.productId %>" method="post">
+                            <button type="submit" class="remove-btn">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                <% }) %>
+            </tbody>
+        </table>
+
+        <div class="cart-summary">
+            <p class="total-text">
+                Total:
+                $<%= cart.reduce((sum, i) => sum + i.price * i.quantity, 0).toFixed(2) %>
+            </p>
+
+            <form action="/checkout" method="post" style="display:inline">
+                <button type="submit" class="checkout-btn">Checkout</button>
             </form>
 
-            <div class="cart-summary">
-                <p>
-                    Total:
-                    $<%= cart.reduce((s,i)=> s + (Number(i.price) * Number(i.quantity)), 0).toFixed(2) %>
-                </p>
+            <form action="/clear-cart" method="post" style="display:inline">
+                <button type="submit" class="clear-btn">Clear Cart</button>
+            </form>
 
-                <form action="/checkout" method="post" style="display:inline">
-                    <button type="submit">Checkout</button>
-                </form>
+            <a href="/shopping" class="continue-link">Continue shopping</a>
+        </div>
 
-                <form action="/clear-cart" method="post" style="display:inline">
-                    <button type="submit">Clear Cart</button>
-                </form>
-
-                <a href="/shopping">Continue shopping</a>
-            </div>
         <% } %>
-    </section>
+
+    </div>
+
 </body>
 </html>
