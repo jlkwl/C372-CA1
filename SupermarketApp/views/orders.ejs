@@ -31,68 +31,71 @@
   </div>
 </nav>
 
-<div class="container mt-5 page-card">
-    <h2>My Orders</h2>
+<div class="container mt-5">
+  <div class="page-card">
 
-    <header>
-        <% if (user) { %>
-            <p>Welcome, <%= user.name || user.username || 'User' %></p>
-        <% } %>
-    </header>
+    <h2 class="mb-3">My Orders</h2>
+    <% if (user) { %>
+      <p class="text-muted mb-4">Welcome, <%= user.username || user.name || 'User' %></p>
+    <% } %>
 
-    <section class="messages">
-        <% if (messages && messages.error && messages.error.length) { %>
-            <div class="errors">
-                <% messages.error.forEach(function(e){ %>
-                    <p class="error"><%= e %></p>
-                <% }) %>
-            </div>
-        <% } %>
+    <!-- Messages -->
+    <% if (messages && messages.error && messages.error.length) { %>
+      <div class="alert alert-danger">
+        <% messages.error.forEach(function(e){ %>
+          <div><%= e %></div>
+        <% }) %>
+      </div>
+    <% } %>
 
-        <% if (messages && messages.success && messages.success.length) { %>
-            <div class="successes">
-                <% messages.success.forEach(function(m){ %>
-                    <p class="success"><%= m %></p>
-                <% }) %>
-            </div>
-        <% } %>
-    </section>
+    <% if (messages && messages.success && messages.success.length) { %>
+      <div class="alert alert-success">
+        <% messages.success.forEach(function(m){ %>
+          <div><%= m %></div>
+        <% }) %>
+      </div>
+    <% } %>
 
-    <section class="orders">
-        <% if (!orders || orders.length === 0) { %>
-            <p>No orders found.</p>
-            <a href="/shopping">Go shopping</a>
-        <% } else { %>
-            <table class="table table-striped mt-4">
-                <thead>
-                    <tr>
-                        <th>Order ID</th>
-                        <th>Date</th>
-                        <th>Total Amount</th>
-                        <th>Status</th>
-                        <th>User</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% orders.forEach(function(o){ %>
-                        <tr>
-                            <td><%= o.orderId %></td>
-                            <td><%= o.orderDate ? new Date(o.orderDate).toLocaleString() : '' %></td>
-                            <td>$<%= Number(o.totalAmount || 0).toFixed(2) %></td>
-                            <td><%= o.status %></td>
-                            <td><%= o.userName || '' %></td>
-                            <td>
-                                <a href="/order/<%= o.orderId %>">View</a>
-                            </td>
-                        </tr>
-                    <% }) %>
-                </tbody>
-            </table>
-        <% } %>
-    </section>
+    <% if (!orders || orders.length === 0) { %>
+      <p>You have no orders yet.</p>
+      <a href="/shopping" class="btn btn-primary mt-3">Start shopping</a>
+    <% } else { %>
+      <table class="table table-hover mt-3">
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Date</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>User</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% orders.forEach(function(o){ %>
+            <tr>
+              <td>#<%= o.orderId %></td>
+              <td><%= o.orderDate ? new Date(o.orderDate).toLocaleString() : '' %></td>
+              <td>$<%= Number(o.totalAmount || 0).toFixed(2) %></td>
+              <td>
+                <span class="badge <%= o.status === 'PLACED' ? 'bg-warning text-dark' : 'bg-success' %>">
+                  <%= o.status %>
+                </span>
+              </td>
+              <td><%= o.userName || '' %></td>
+              <td>
+                <a href="/order/<%= o.orderId %>" class="btn btn-sm btn-outline-primary">
+                  View
+                </a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+
+  </div>
 </div>
 
 </body>
 </html>
-

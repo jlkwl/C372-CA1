@@ -1,8 +1,7 @@
 // models/Order.js
-const db = require('../db');   // this is your existing db.js (single connection)
+const db = require('../db');
 
 const Order = {
-
   // Create an order from the current cart
   createOrderFromCart(userId, cart, callback) {
     if (!cart || cart.length === 0) {
@@ -57,22 +56,96 @@ const Order = {
     });
   },
 
-  // Get all orders for one user
+  // My Orders — all orders for one user
   getOrdersByUser(userId, callback) {
-    const sql =
-      'SELECT * FROM orders WHERE userId = ? ORDER BY orderDate DESC';
+    const sql = `
+      SELECT 
+        o.id        AS orderId,
+        o.orderDate AS orderDate,
+        o.totalAmount,
+        o.status,
+        u.username  AS userName
+      FROM orders o
+      JOIN users u ON o.userId = u.id
+      WHERE o.userId = ?
+      ORDER BY o.orderDate DESC
+    `;
     db.query(sql, [userId], callback);
   },
 
-  // Get all items for one order
+  // Admin view — all orders
+  getAllOrders(callback) {
+    const sql = `
+      SELECT 
+        o.id        AS orderId,
+        o.orderDate AS orderDate,
+        o.totalAmount,
+        o.status,
+        u.username  AS userName
+      FROM orders o
+      JOIN users u ON o.userId = u.id
+      ORDER BY o.orderDate DESC
+    `;
+    db.query(sql, [], callback);
+  },
+
+  // Items for one order (helper if needed)
   getItemsByOrder(orderId, callback) {
     const sql = `
-      SELECT oi.*, p.productName, p.image
+      SELECT 
+        oi.*, 
+        p.productName, 
+        p.image
       FROM order_items oi
       JOIN products p ON oi.productId = p.id
       WHERE oi.orderId = ?
     `;
     db.query(sql, [orderId], callback);
+  },
+
+  // Header + items together — used by invoice page
+  getOrderWithItems(orderId, callback) {
+    const orderSql = `
+      SELECT 
+        o.id        AS orderId,
+        o.orderDate,
+        o.totalAmount,
+        o.status,
+        u.username  AS userName,
+        u.email,
+        u.address,
+        u.contact
+      FROM orders o
+      JOIN users u ON o.userId = u.id
+      WHERE o.id = ?
+      LIMIT 1
+    `;
+
+    db.query(orderSql, [orderId], (err, orderRows) => {
+      if (err) return callback(err);
+      if (!orderRows || !orderRows.length) return callback(null, null);
+
+      const order = orderRows[0];
+
+      const itemsSql = `
+        SELECT 
+          oi.quantity,
+          oi.priceAtTime,
+          p.productName,
+          p.image
+        FROM order_items oi
+        JOIN products p ON oi.productId = p.id
+        WHERE oi.orderId = ?
+      `;
+      db.query(itemsSql, [orderId], (err2, itemRows) => {
+        if (err2) return callback(err2);
+
+        callback(null, {
+          header: order,
+          items: itemRows || []
+        });
+      });
+    });
   }
 };
 
