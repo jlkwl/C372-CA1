@@ -13,13 +13,16 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+
     <!-- Navbar -->
     <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">Supermarket App</a>
+
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">
                 <span class="navbar-toggler-icon"></span>
             </button>
+
             <div class="collapse navbar-collapse" id="collapsibleNavbar">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
@@ -33,7 +36,7 @@
         </div>
     </nav>
 
-    <!-- Register card -->
+    <!-- Register Card -->
     <div class="container">
         <div class="page-card">
 
@@ -49,16 +52,17 @@
             <% } %>
 
             <form action="/register" method="POST">
+
                 <div class="mb-3">
                     <label class="form-label fw-bold" for="username">Username</label>
                     <input type="text" id="username" name="username" class="form-control"
-                           value="<%= formData ? formData.username : '' %>" required>
+                        value="<%= formData ? formData.username : '' %>" required>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-bold" for="email">Email</label>
                     <input type="email" id="email" name="email" class="form-control"
-                           value="<%= formData ? formData.email : '' %>" required>
+                        value="<%= formData ? formData.email : '' %>" required>
                 </div>
 
                 <div class="mb-3">
@@ -69,27 +73,22 @@
                 <div class="mb-3">
                     <label class="form-label fw-bold" for="address">Address</label>
                     <input type="text" id="address" name="address" class="form-control"
-                           value="<%= formData ? formData.address : '' %>" required>
+                        value="<%= formData ? formData.address : '' %>" required>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-bold" for="contact">Contact</label>
                     <input type="text" id="contact" name="contact" class="form-control"
-                           value="<%= formData ? formData.contact : '' %>" required>
+                        value="<%= formData ? formData.contact : '' %>" required>
                 </div>
 
-                <div class="mb-4">
-                    <label class="form-label fw-bold" for="role">Role</label>
-                    <select id="role" name="role" class="form-select" required>
-                        <option value="">Select role</option>
-                        <option value="user"  <%= formData && formData.role === 'user' ? 'selected' : '' %>>User</option>
-                        <option value="admin" <%= formData && formData.role === 'admin' ? 'selected' : '' %>>Admin</option>
-                    </select>
-                </div>
+                <!-- Role removed, replaced with hidden user role -->
+                <input type="hidden" name="role" value="user">
 
                 <button type="submit" class="btn btn-primary w-100">Register</button>
             </form>
         </div>
     </div>
+
 </body>
 </html>
