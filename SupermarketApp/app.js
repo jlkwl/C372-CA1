@@ -196,6 +196,47 @@ app.get('/cart', checkAuthenticated, (req, res) => {
     });
 });
 
+// REMOVE ITEM FROM CART
+app.post('/remove-from-cart/:id', checkAuthenticated, (req, res) => {
+    const productId = req.params.id;
+
+    if (!req.session.cart) req.session.cart = [];
+
+    req.session.cart = req.session.cart.filter(item =>
+        String(item.productId) !== String(productId)
+    );
+
+    req.flash('success', 'Item removed from cart.');
+    res.redirect('/cart');
+});
+
+
+// CLEAR ENTIRE CART
+app.post('/clear-cart', checkAuthenticated, (req, res) => {
+    req.session.cart = [];
+    req.flash('success', 'Cart cleared.');
+    res.redirect('/cart');
+});
+
+
+// UPDATE ITEM QUANTITY
+app.post('/cart/update', checkAuthenticated, (req, res) => {
+    const { productId, quantity } = req.body;
+
+    if (!req.session.cart) req.session.cart = [];
+
+    const item = req.session.cart.find(i =>
+        String(i.productId) === String(productId)
+    );
+
+    if (item) {
+        item.quantity = Number(quantity) || 1;
+    }
+
+    req.flash('success', 'Cart updated.');
+    res.redirect('/cart');
+});
+
 // ====================== AUTH ROUTES ======================
 
 app.get('/register', (req, res) => {
