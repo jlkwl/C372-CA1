@@ -1,6 +1,7 @@
 // controllers/OrderController.js
 
 const connection = require('../db');
+const CartDB = require('../models/CartDB');   // IMPORTANT: required for persistent cart
 
 // -------------------------------------------
 // CHECKOUT — Create order, save items, update stock
@@ -26,10 +27,11 @@ exports.checkout = (req, res) => {
 
         const orderId = orderResult.insertId;
 
-        // 2️⃣ Insert items into order_items (one by one)
-        const itemSql =
-            `INSERT INTO order_items (orderId, productId, quantity, priceAtTime)
-             VALUES (?, ?, ?, ?)`;
+        // 2️⃣ Insert each item into order_items
+        const itemSql = `
+            INSERT INTO order_items (orderId, productId, quantity, priceAtTime)
+            VALUES (?, ?, ?, ?)
+        `;
 
         cart.forEach(item => {
             connection.query(
@@ -40,19 +42,24 @@ exports.checkout = (req, res) => {
                 }
             );
 
-            // 3️⃣ Deduct inventory from products
-            const updateStockSql =
-                `UPDATE products SET quantity = quantity - ? WHERE id = ?`;
-
+            // 3️⃣ Deduct inventory stock
+            const updateStockSql = `
+                UPDATE products SET quantity = quantity - ? WHERE id = ?
+            `;
             connection.query(updateStockSql, [item.quantity, item.productId]);
         });
 
-        // 4️⃣ Clear cart
-        req.session.cart = [];
+        // 4️⃣ Clear persistent database cart
+        CartDB.clearCart(user.id, (err2) => {
+            if (err2) console.error("Error clearing DB cart:", err2);
 
-        // Redirect to invoice page
-        req.flash('success', 'Order placed successfully!');
-        res.redirect(`/order/${orderId}`);
+            // Clear session cart as well
+            req.session.cart = [];
+
+            // Redirect to order invoice page
+            req.flash('success', 'Order placed successfully!');
+            return res.redirect(`/order/${orderId}`);
+        });
     });
 };
 
@@ -63,7 +70,8 @@ exports.listUserOrders = (req, res) => {
     const userId = req.session.user.id;
 
     const sql = `
-        SELECT * FROM orders
+        SELECT *
+        FROM orders
         WHERE userId = ?
         ORDER BY orderDate DESC
     `;
@@ -86,7 +94,7 @@ exports.listUserOrders = (req, res) => {
 exports.viewOrder = (req, res) => {
     const orderId = req.params.id;
 
-    // 1️⃣ Get order info
+    // 1️⃣ Get order header info
     const orderSql = `SELECT * FROM orders WHERE id = ?`;
 
     connection.query(orderSql, [orderId], (err, orderResults) => {
@@ -99,7 +107,7 @@ exports.viewOrder = (req, res) => {
 
         const order = orderResults[0];
 
-        // 2️⃣ Get items for this order
+        // 2️⃣ Get ordered items
         const itemsSql = `
             SELECT oi.*, p.productName, p.image
             FROM order_items oi

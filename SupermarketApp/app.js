@@ -9,6 +9,7 @@ const app = express();
 // Controllers
 const productController = require('./controllers/ProductController');
 const OrderController = require('./controllers/OrderController');
+const CartDB = require('./models/CartDB');   // NEW
 
 // Multer configuration
 const storage = multer.diskStorage({
@@ -19,7 +20,6 @@ const storage = multer.diskStorage({
         cb(null, file.originalname);
     }
 });
-
 const upload = multer({ storage: storage });
 
 // Middleware setup
@@ -46,7 +46,7 @@ const checkAuthenticated = (req, res, next) => {
 
 // Middleware to check if user is admin
 const checkAdmin = (req, res, next) => {
-    if (req.session.user.role === 'admin') {
+    if (req.session.user && req.session.user.role === 'admin') {
         return next();
     } else {
         req.flash('error', 'Access denied');
@@ -69,6 +69,22 @@ const validateRegistration = (req, res, next) => {
     }
     next();
 };
+
+// Helper: sync cart from DB into session
+function syncCartFromDB(req, done) {
+    if (!req.session.user) {
+        req.session.cart = [];
+        return done(null);
+    }
+    CartDB.getCart(req.session.user.id, (err, rows) => {
+        if (err) {
+            console.error('Error loading cart from DB:', err);
+            return done(err);
+        }
+        req.session.cart = rows || [];
+        done(null);
+    });
+}
 
 // ====================== PRODUCT & HOME ROUTES ======================
 
@@ -120,121 +136,126 @@ app.get('/deleteProduct/:id',
     productController.deleteProduct
 );
 
-// ====================== CART ROUTES ======================
+// ====================== CART ROUTES (PERSISTENT) ======================
 
-// Add to cart
+// Add to cart (uses DB, then syncs to session)
 app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     const productId = parseInt(req.params.id);
     const quantityToAdd = parseInt(req.body.quantity, 10) || 1;
+    const userId = req.session.user.id;
 
     productController.fetchProductById(productId, (err, product) => {
-        if (err) {
+        if (err || !product) {
             req.flash('error', 'Error adding to cart');
             return res.redirect('/shopping');
         }
 
-        if (!product) {
-            req.flash('error', 'Product not found');
+        const available = Number(product.quantity) || 0;
+        if (available <= 0) {
+            req.flash('error', `${product.productName} is out of stock.`);
             return res.redirect('/shopping');
         }
 
-        if (!req.session.cart) req.session.cart = [];
+        // Check existing quantity in DB
+        CartDB.getItem(userId, productId, (err2, existing) => {
+            if (err2) {
+                console.error(err2);
+                req.flash('error', 'Could not update cart.');
+                return res.redirect('/shopping');
+            }
 
-        const available = Number(product.quantity) || 0;
-        const existingItem = req.session.cart.find(
-            item => String(item.productId) === String(productId)
-        );
+            const currentQty = existing ? Number(existing.quantity) || 0 : 0;
+            let newQty = currentQty + quantityToAdd;
 
-        if (existingItem) {
-            const newTotal =
-                Number(existingItem.quantity || 0) +
-                Number(quantityToAdd || 0);
-
-            if (newTotal > available) {
-                existingItem.quantity = available;
-                req.flash(
-                    'error',
-                    `Only ${available} units of ${product.productName} are available.`
-                );
+            if (newQty > available) {
+                newQty = available;
+                req.flash('error', `Only ${available} units of ${product.productName} are available.`);
             } else {
-                existingItem.quantity = newTotal;
-            }
-        } else {
-            let addQty = Number(quantityToAdd || 0);
-            if (addQty > available) {
-                addQty = available;
-                req.flash(
-                    'error',
-                    `Only ${available} units of ${product.productName} are available.`
-                );
+                req.flash('success', 'Product added to cart.');
             }
 
-            if (addQty > 0) {
-                req.session.cart.push({
-                    productId: product.id,
-                    productName: product.productName,
-                    price: product.price,
-                    quantity: addQty,
-                    image: product.image
+            CartDB.setItemQuantity(userId, productId, newQty, (err3) => {
+                if (err3) {
+                    console.error(err3);
+                    req.flash('error', 'Could not save cart.');
+                    return res.redirect('/shopping');
+                }
+
+                syncCartFromDB(req, () => {
+                    return res.redirect('/cart');
                 });
-            } else {
-                req.flash('error', `${product.productName} is out of stock.`);
-            }
-        }
-
-        return res.redirect('/cart');
+            });
+        });
     });
 });
 
-// Show cart
+// Show cart (always load from DB first)
 app.get('/cart', checkAuthenticated, (req, res) => {
-    res.render('cart', {
-        cart: req.session.cart || [],
-        user: req.session.user,
-        errors: req.flash('error'),
-        messages: req.flash('success')
+    syncCartFromDB(req, (err) => {
+        if (err) console.error(err);
+        res.render('cart', {
+            cart: req.session.cart || [],
+            user: req.session.user,
+            errors: req.flash('error'),
+            messages: req.flash('success')
+        });
     });
 });
 
 // REMOVE ITEM FROM CART
 app.post('/remove-from-cart/:id', checkAuthenticated, (req, res) => {
+    const userId = req.session.user.id;
     const productId = req.params.id;
 
-    if (!req.session.cart) req.session.cart = [];
-
-    req.session.cart = req.session.cart.filter(item =>
-        String(item.productId) !== String(productId)
-    );
-
-    req.flash('success', 'Item removed from cart.');
-    res.redirect('/cart');
+    CartDB.removeItem(userId, productId, (err) => {
+        if (err) console.error(err);
+        syncCartFromDB(req, () => {
+            req.flash('success', 'Item removed from cart.');
+            res.redirect('/cart');
+        });
+    });
 });
-
 
 // CLEAR ENTIRE CART
 app.post('/clear-cart', checkAuthenticated, (req, res) => {
-    req.session.cart = [];
-    req.flash('success', 'Cart cleared.');
-    res.redirect('/cart');
-});
+    const userId = req.session.user.id;
 
+    CartDB.clearCart(userId, (err) => {
+        if (err) console.error(err);
+        req.session.cart = [];
+        req.flash('success', 'Cart cleared.');
+        res.redirect('/cart');
+    });
+});
 
 // UPDATE ITEM QUANTITY
 app.post('/cart/update', checkAuthenticated, (req, res) => {
+    const userId = req.session.user.id;
     const { productId, quantity } = req.body;
+    const requestedQty = Math.max(1, parseInt(quantity, 10) || 1);
 
-    if (!req.session.cart) req.session.cart = [];
+    // Optional: enforce stock limit again
+    productController.fetchProductById(productId, (err, product) => {
+        if (err || !product) {
+            req.flash('error', 'Error updating cart.');
+            return res.redirect('/cart');
+        }
 
-    const item = req.session.cart.find(i =>
-        String(i.productId) === String(productId)
-    );
+        let finalQty = requestedQty;
+        const available = Number(product.quantity) || 0;
+        if (finalQty > available) {
+            finalQty = available;
+            req.flash('error', `Only ${available} units of ${product.productName} are available.`);
+        }
 
-    if (item) {
-        item.quantity = Number(quantity) || 1;
-    }
-
-    req.flash('success', 'Cart updated.');
-    res.redirect('/cart');
+        CartDB.setItemQuantity(userId, productId, finalQty, (err2) => {
+            if (err2) console.error(err2);
+            syncCartFromDB(req, () => {
+                req.flash('success', 'Cart updated.');
+                res.redirect('/cart');
+            });
+        });
+    });
 });
 
 // ====================== AUTH ROUTES ======================
@@ -289,12 +310,16 @@ app.post('/login', (req, res) => {
 
         if (results.length > 0) {
             req.session.user = results[0];
-            req.flash('success', 'Login successful!');
-            if (req.session.user.role === 'user') {
-                res.redirect('/shopping');
-            } else {
-                res.redirect('/inventory');
-            }
+
+            // load that user's saved cart into session
+            syncCartFromDB(req, () => {
+                req.flash('success', 'Login successful!');
+                if (req.session.user.role === 'user') {
+                    res.redirect('/shopping');
+                } else {
+                    res.redirect('/inventory');
+                }
+            });
         } else {
             req.flash('error', 'Invalid email or password.');
             res.redirect('/login');
@@ -309,16 +334,23 @@ app.get('/logout', (req, res) => {
 
 // ====================== ORDER ROUTES ======================
 
-// Checkout: create order from cart, update inventory, clear cart
-app.post('/checkout', checkAuthenticated, OrderController.checkout);
+// Checkout: load DB cart into session first, then delegate to controller
+app.post('/checkout', checkAuthenticated, (req, res) => {
+    syncCartFromDB(req, (err) => {
+        if (err) {
+            console.error(err);
+            req.flash('error', 'Could not load your cart.');
+            return res.redirect('/cart');
+        }
+        OrderController.checkout(req, res);
+    });
+});
 
 // List current user's orders
 app.get('/orders', checkAuthenticated, OrderController.listUserOrders);
 
 // View single order details
 app.get('/order/:id', checkAuthenticated, OrderController.viewOrder);
-
-
 
 // LIVE SEARCH SUGGESTIONS
 app.get('/search-suggestions', (req, res) => {
@@ -337,11 +369,9 @@ app.get('/search-suggestions', (req, res) => {
     });
 });
 
-
 // ====================== START SERVER ======================
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
     console.log(`Server running on http://localhost:${PORT}/`)
 );
-
