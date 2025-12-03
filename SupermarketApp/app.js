@@ -277,6 +277,26 @@ app.get('/orders', checkAuthenticated, OrderController.listUserOrders);
 // View single order details
 app.get('/order/:id', checkAuthenticated, OrderController.viewOrder);
 
+
+
+// LIVE SEARCH SUGGESTIONS
+app.get('/search-suggestions', (req, res) => {
+    const term = req.query.term || "";
+
+    const sql = `
+        SELECT productName 
+        FROM products 
+        WHERE productName LIKE ?
+        LIMIT 5
+    `;
+
+    connection.query(sql, [`%${term}%`], (err, results) => {
+        if (err) return res.json([]);
+        res.json(results.map(r => r.productName));
+    });
+});
+
+
 // ====================== START SERVER ======================
 
 const PORT = process.env.PORT || 3000;

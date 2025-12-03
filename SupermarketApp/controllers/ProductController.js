@@ -1,26 +1,51 @@
-const Product = require('../models/product'); // Using existing Students model
+const Product = require('../models/product');
 
 const ProductController = {
-    // List all products (for both inventory and shopping)
+
+    // ============================
+    // LIST PRODUCTS (SHOP + INVENTORY)
+    // ============================
     listAllProducts: (req, res) => {
-        Product.getAllProducts((err, results) => {
+        const search = req.query.search || "";
+        const category = req.query.category || "All";
+
+        // ---------- ADMIN INVENTORY ----------
+        if (req.path.includes('/inventory')) {
+            Product.getAllProducts((err, results) => {
+                if (err) {
+                    req.flash('error', 'Error fetching products');
+                    return res.redirect('/');
+                }
+                return res.render('inventory', {
+                    products: results,
+                    user: req.session.user
+                });
+            });
+            return;
+        }
+
+        // ---------- USER SHOPPING ----------
+        Product.getFilteredProducts(search, category, (err, results) => {
             if (err) {
                 req.flash('error', 'Error fetching products');
                 return res.redirect('/');
             }
-            
-            // Render inventory or shopping view based on path
-            const view = req.path.includes('/inventory') ? 'inventory' : 'shopping';
-            res.render(view, { 
-                products: results, 
-                user: req.session.user 
+
+            res.render('shopping', {
+                products: results,
+                user: req.session.user,
+                search,
+                category
             });
         });
     },
-    
-    // Get single product
+
+    // ============================
+    // VIEW SINGLE PRODUCT DETAILS
+    // ============================
     getProductById: (req, res) => {
         const id = req.params.id;
+
         Product.getProductById(id, (err, product) => {
             if (err) {
                 req.flash('error', 'Error fetching product');
@@ -29,32 +54,37 @@ const ProductController = {
             if (!product) {
                 return res.status(404).send('Product not found');
             }
-            res.render('product', { 
-                product, 
-                user: req.session.user 
+
+            res.render('product', {
+                product,
+                user: req.session.user
             });
         });
     },
 
-    // Helper method for cart
+    // Used by Add-to-Cart logic in app.js
     fetchProductById: (id, callback) => {
         Product.getProductById(id, callback);
     },
 
-    // Add new product
+    // ============================
+    // ADD PRODUCT (ADMIN)
+    // ============================
     addProduct: (req, res) => {
-        const { name, quantity, price } = req.body;
+        const { name, quantity, price, category } = req.body;
         const image = req.file ? req.file.filename : null;
 
         const productData = {
             productName: name,
             quantity: Number(quantity) || 0,
             price: parseFloat(price) || 0,
-            image
+            image,
+            category
         };
 
         Product.addProduct(productData, (err) => {
             if (err) {
+                console.log(err);
                 req.flash('error', 'Error adding product');
                 return res.redirect('/addProduct');
             }
@@ -63,36 +93,41 @@ const ProductController = {
         });
     },
 
-    // Render update form
+    // ============================
+    // UPDATE PRODUCT (ADMIN)
+    // ============================
     renderUpdateProductForm: (req, res) => {
         const id = req.params.id;
+
         Product.getProductById(id, (err, product) => {
             if (err || !product) {
                 req.flash('error', 'Product not found');
                 return res.redirect('/inventory');
             }
-            res.render('updateProduct', { 
-                product, 
-                user: req.session.user 
+
+            res.render('updateProduct', {
+                product,
+                user: req.session.user
             });
         });
     },
 
-    // Update product
     updateProduct: (req, res) => {
         const id = req.params.id;
-        const { name, quantity, price } = req.body;
+        const { name, quantity, price, category } = req.body;
         const image = req.file ? req.file.filename : req.body.currentImage;
 
         const productData = {
             productName: name,
             quantity: Number(quantity) || 0,
             price: parseFloat(price) || 0,
-            image
+            image,
+            category
         };
 
         Product.updateProduct(id, productData, (err) => {
             if (err) {
+                console.log(err);
                 req.flash('error', 'Error updating product');
                 return res.redirect(`/updateProduct/${id}`);
             }
@@ -101,9 +136,12 @@ const ProductController = {
         });
     },
 
-    // Delete product
+    // ============================
+    // DELETE PRODUCT (ADMIN)
+    // ============================
     deleteProduct: (req, res) => {
         const id = req.params.id;
+
         Product.deleteProduct(id, (err) => {
             if (err) {
                 req.flash('error', 'Error deleting product');

@@ -1,123 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <link rel="stylesheet" href="/css/style.css">
-  <title>Supermarket App</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shopping</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body { background: #f4f4f4; }
+
+        .category-bar button.active {
+            background: #0066cc;
+            color: white !important;
+        }
+
+        .product-card {
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            background: white;
+            transition: transform .2s;
+        }
+
+        .product-card:hover {
+            transform: scale(1.03);
+        }
+
+        .product-card img {
+            width: 100%;
+            height: 160px;
+            object-fit: contain;
+            background: white;
+        }
+
+        .out-of-stock {
+            opacity: 0.6;
+        }
+
+        #suggestions {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
 </head>
+
 <body>
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
-    <div class="container-fluid">
-      <!-- Brand -->
-      <a class="navbar-brand" href="/shopping">Supermarket App</a>
 
-      <!-- Mobile toggle -->
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#userNavbar">
-        <span class="navbar-toggler-icon"></span>
-      </button>
+<%- include('partials/navbar'); %>
 
-      <!-- Right-side links -->
-      <div class="collapse navbar-collapse" id="userNavbar">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item">
-            <a class="nav-link active" href="/shopping">Shop</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/cart">Cart</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/orders">My Orders</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/logout">Logout</a>
-          </li>
-        </ul>
-      </div>
+<div class="container mt-4">
+
+    <!-- 🔍 SEARCH BAR + Suggestions -->
+    <form method="GET" action="/shopping" class="position-relative mb-4">
+        <input id="searchBox"
+               class="form-control"
+               type="text"
+               placeholder="Search products..."
+               name="search"
+               autocomplete="off"
+               value="<%= search %>">
+
+        <button class="btn btn-primary position-absolute top-0 end-0" style="height:100%;">
+            Search
+        </button>
+
+        <ul id="suggestions" 
+            class="list-group position-absolute w-100" 
+            style="z-index: 99; display: none;"></ul>
+    </form>
+
+    <!-- 🧭 CATEGORY FILTER -->
+    <div class="d-flex gap-2 mb-4 category-bar">
+        <% const categories = ["All", "Fruits", "Vegetables", "Dairy", "Bakery"]; %>
+
+        <% categories.forEach(cat => { %>
+            <button class="btn btn-light <%= category === cat ? 'active' : '' %>"
+                onclick="window.location='/shopping?category=<%= cat %>&search=<%= search %>'">
+                <%= cat %>
+            </button>
+        <% }); %>
     </div>
-  </nav>
 
-  <div class="container mt-4">
-    <p>Welcome, <%= user.username %> (<%= user.role %>)</p>
+    <!-- PRODUCT GRID -->
+    <div class="row g-4">
+        <% products.forEach(p => { %>
 
-    <!-- Flash messages -->
-    <% if (typeof messages !== 'undefined' && messages.error && messages.error.length) { %>
-      <div class="alert alert-danger">
-        <% messages.error.forEach(function(e){ %>
-          <div><%= e %></div>
+            <% const outStock = p.quantity <= 0; %>
+
+            <div class="col-md-3">
+                <div class="product-card p-3 <%= outStock ? 'out-of-stock' : '' %>">
+                    <img src="/images/<%= p.image %>" alt="<%= p.productName %>">
+
+                    <h5 class="mt-2"><%= p.productName %></h5>
+
+                    <span class="badge <%= outStock ? 'bg-danger' : 'bg-success' %>">
+                        <%= outStock ? 'Out of stock' : 'In stock' %>
+                    </span>
+
+                    <p class="mt-2">$<%= p.price.toFixed(2) %></p>
+
+                    <% if (!outStock) { %>
+                        <form action="/add-to-cart/<%= p.id %>" method="POST">
+                            <select name="quantity" class="form-select mb-2">
+                                <% for (let q = 1; q <= 10; q++) { %>
+                                    <option value="<%= q %>"><%= q %></option>
+                                <% } %>
+                            </select>
+                            <button class="btn btn-primary w-100">Add to Cart</button>
+                        </form>
+                    <% } else { %>
+                        <button class="btn btn-secondary w-100" disabled>Unavailable</button>
+                    <% } %>
+                </div>
+            </div>
         <% }) %>
-      </div>
-    <% } %>
+    </div>
+</div>
 
-    <% if (typeof messages !== 'undefined' && messages.success && messages.success.length) { %>
-      <div class="alert alert-success">
-        <% messages.success.forEach(function(m){ %>
-          <div><%= m %></div>
-        <% }) %>
-      </div>
-    <% } %>
+<script>
+// LIVE SEARCH DROPDOWN
+const box = document.getElementById("searchBox");
+const sug = document.getElementById("suggestions");
 
-    <div class="text-center"><h2>Products from Supermarket</h2></div>
-    <br>
+box.addEventListener("input", () => {
+    const term = box.value.trim();
 
-    <table class="table table-hover small text-center">
-      <thead>
-        <tr>
-          <th width="200">Product Name</th>
-          <th width="150">Product Image</th>
-          <th width="80">Quantity</th>
-          <th width="80">Price</th>
-          <th width="80">Quantity to Buy</th>
-          <th width="80">Buy</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% for (let i = 0; i < products.length; i++) { 
-             const p = products[i];
-             const outOfStock = p.quantity <= 0;
-        %>
-          <tr class="<%= outOfStock ? 'table-secondary' : '' %>">
-            <td>
-              <a href="/product/<%= p.id %>"><%= p.productName %></a>
-            </td>
-            <td>
-              <img src="/images/<%= p.image %>" style="width:60px;">
-            </td>
-            <td><%= p.quantity %></td>
-            <td>$<%= p.price.toFixed(2) %></td>
+    if (term.length === 0) {
+        sug.style.display = "none";
+        return;
+    }
 
-            <!-- Quantity select / out-of-stock label -->
-            <td>
-              <% if (outOfStock) { %>
-                <span class="text-danger fw-bold">Out of stock</span>
-              <% } else { %>
-                <select class="form-control"
-                        onchange="document.getElementById('quantity-<%= p.id %>').value = this.value">
-                  <% for (let q = 1; q <= 10; q++) { %>
-                    <option value="<%= q %>"><%= q %></option>
-                  <% } %>
-                </select>
-              <% } %>
-            </td>
+    fetch(`/search-suggestions?term=${term}`)
+        .then(r => r.json())
+        .then(list => {
+            sug.innerHTML = "";
 
-            <!-- Buy button / disabled when out of stock -->
-            <td>
-              <% if (outOfStock) { %>
-                <button class="btn btn-secondary" disabled>Buy</button>
-              <% } else { %>
-                <form action="/add-to-cart/<%= p.id %>" method="POST">
-                  <input type="hidden" name="quantity" id="quantity-<%= p.id %>" value="1">
-                  <button type="submit" class="btn btn-primary mt-1">Buy</button>
-                </form>
-              <% } %>
-            </td>
-          </tr>
-        <% } %>
-      </tbody>
-    </table>
-  </div>
+            if (list.length === 0) {
+                sug.style.display = "none";
+                return;
+            }
+
+            list.forEach(item => {
+                const li = document.createElement("li");
+                li.className = "list-group-item";
+                li.style.cursor = "pointer";
+                li.innerText = item;
+
+                li.onclick = () => {
+                    box.value = item;
+                    sug.style.display = "none";
+                };
+
+                sug.appendChild(li);
+            });
+
+            sug.style.display = "block";
+        });
+});
+
+document.addEventListener("click", (e) => {
+    if (!box.contains(e.target)) sug.style.display = "none";
+});
+</script>
+
 </body>
 </html>
