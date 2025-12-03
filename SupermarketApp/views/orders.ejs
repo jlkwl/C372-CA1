@@ -35,11 +35,11 @@
   <div class="page-card">
 
     <h2 class="mb-3">My Orders</h2>
+
     <% if (user) { %>
-      <p class="text-muted mb-4">Welcome, <%= user.username || user.name || 'User' %></p>
+      <p class="text-muted mb-4">Welcome, <%= user.username %></p>
     <% } %>
 
-    <!-- Messages -->
     <% if (messages && messages.error && messages.error.length) { %>
       <div class="alert alert-danger">
         <% messages.error.forEach(function(e){ %>
@@ -60,6 +60,7 @@
       <p>You have no orders yet.</p>
       <a href="/shopping" class="btn btn-primary mt-3">Start shopping</a>
     <% } else { %>
+
       <table class="table table-hover mt-3">
         <thead>
           <tr>
@@ -71,27 +72,38 @@
             <th></th>
           </tr>
         </thead>
+
         <tbody>
           <% orders.forEach(function(o){ %>
             <tr>
-              <td>#<%= o.orderId %></td>
-              <td><%= o.orderDate ? new Date(o.orderDate).toLocaleString() : '' %></td>
-              <td>$<%= Number(o.totalAmount || 0).toFixed(2) %></td>
+              <td>#<%= o.id %></td>
+
+              <td>
+                <%= o.orderDate ? new Date(o.orderDate).toLocaleString() : '' %>
+              </td>
+
+              <td>$<%= Number(o.totalAmount).toFixed(2) %></td>
+
               <td>
                 <span class="badge <%= o.status === 'PLACED' ? 'bg-warning text-dark' : 'bg-success' %>">
                   <%= o.status %>
                 </span>
               </td>
-              <td><%= o.userName || '' %></td>
+
+              <!-- user.username is already passed by backend -->
+              <td><%= user.username %></td>
+
               <td>
-                <a href="/order/<%= o.orderId %>" class="btn btn-sm btn-outline-primary">
+                <a href="/order/<%= o.id %>" class="btn btn-sm btn-outline-primary">
                   View
                 </a>
               </td>
             </tr>
           <% }) %>
         </tbody>
+
       </table>
+
     <% } %>
 
   </div>

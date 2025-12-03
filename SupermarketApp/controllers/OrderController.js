@@ -1,118 +1,122 @@
 // controllers/OrderController.js
-const Order = require('../models/Order');
 
-const OrderController = {
-    // Create an order from the cart, update inventory, then go to invoice view
-    checkout: (req, res) => {
-        const cart = req.session && Array.isArray(req.session.cart) ? req.session.cart : [];
-        if (!cart || cart.length === 0) {
-            req.flash('error', 'Your cart is empty.');
-            return res.redirect('/cart');
-        }
+const connection = require('../db');
 
-        const user = req.session && req.session.user;
-        const userId = user && (user.id || user.userId);
+// -------------------------------------------
+// CHECKOUT — Create order, save items, update stock
+// -------------------------------------------
+exports.checkout = (req, res) => {
+    const cart = req.session.cart || [];
+    const user = req.session.user;
 
-        if (!userId) {
-            req.flash('error', 'You must be logged in to checkout.');
-            return res.redirect('/login');
-        }
+    if (!cart || cart.length === 0) {
+        req.flash('error', 'Your cart is empty.');
+        return res.redirect('/cart');
+    }
 
-        // Create order from cart using model (transaction includes stock decrement)
-        Order.createOrderFromCart(userId, cart, (err, createdOrder) => {
-            if (err) {
-                console.error('Order.createOrderFromCart error:', err);
-                const msg = err.message || 'Failed to create order. Please try again.';
-                req.flash('error', msg);
-                return res.redirect('/cart');
-            }
+    // Calculate total
+    const totalAmount = cart.reduce((sum, item) => {
+        return sum + item.price * item.quantity;
+    }, 0);
 
-            // ✅ Success - clear cart and go straight to invoice / order details
-            req.session.cart = [];
-            req.flash('success', 'Order placed successfully!');
-            return res.redirect(`/order/${createdOrder.orderId}`);
-        });
-    },
+    // 1️⃣ Insert into orders table
+    const orderSql = `INSERT INTO orders (userId, totalAmount) VALUES (?, ?)`;
+    connection.query(orderSql, [user.id, totalAmount], (err, orderResult) => {
+        if (err) throw err;
 
-    // Admin view of all orders (if you use it)
-    listAll: (req, res) => {
-        Order.getAllOrders((err, orders) => {
-            if (err) {
-                console.error('Order.getAllOrders error:', err);
-                req.flash('error', 'Could not retrieve orders.');
-                return res.redirect('/');
-            }
+        const orderId = orderResult.insertId;
 
-            res.render('orders', {
-                orders: orders || [],
-                user: req.session.user,
-                messages: {
-                    success: req.flash('success'),
-                    error: req.flash('error')
+        // 2️⃣ Insert items into order_items (one by one)
+        const itemSql =
+            `INSERT INTO order_items (orderId, productId, quantity, priceAtTime)
+             VALUES (?, ?, ?, ?)`;
+
+        cart.forEach(item => {
+            connection.query(
+                itemSql,
+                [orderId, item.productId, item.quantity, item.price],
+                err => {
+                    if (err) throw err;
                 }
-            });
+            );
+
+            // 3️⃣ Deduct inventory from products
+            const updateStockSql =
+                `UPDATE products SET quantity = quantity - ? WHERE id = ?`;
+
+            connection.query(updateStockSql, [item.quantity, item.productId]);
         });
-    },
 
-    // Current user's orders (My Orders page)
-    listUserOrders: (req, res) => {
-        const user = req.session && req.session.user;
-        const userId = user && (user.id || user.userId);
+        // 4️⃣ Clear cart
+        req.session.cart = [];
 
-        if (!userId) {
-            req.flash('error', 'You must be logged in to view your orders.');
-            return res.redirect('/login');
-        }
+        // Redirect to invoice page
+        req.flash('success', 'Order placed successfully!');
+        res.redirect(`/order/${orderId}`);
+    });
+};
 
-        Order.getOrdersByUser(userId, (err, orders) => {
-            if (err) {
-                console.error('Order.getOrdersByUser error:', err);
-                req.flash('error', 'Could not retrieve your orders.');
-                return res.redirect('/');
-            }
+// -------------------------------------------
+// LIST USER ORDERS (order history)
+// -------------------------------------------
+exports.listUserOrders = (req, res) => {
+    const userId = req.session.user.id;
 
-            res.render('orders', {
-                orders: orders || [],
-                user: req.session.user,
-                messages: {
-                    success: req.flash('success'),
-                    error: req.flash('error')
-                }
-            });
+    const sql = `
+        SELECT * FROM orders
+        WHERE userId = ?
+        ORDER BY orderDate DESC
+    `;
+
+    connection.query(sql, [userId], (err, orders) => {
+        if (err) throw err;
+
+        res.render('orders', {
+            orders,
+            user: req.session.user,
+            messages: req.flash('success'),
+            errors: req.flash('error')
         });
-    },
+    });
+};
 
-    // Single order view (invoice style)
-    viewOrder: (req, res) => {
-        const orderId = req.params.id;
-        if (!orderId) {
-            req.flash('error', 'No order specified.');
+// -------------------------------------------
+// VIEW ORDER DETAILS + ITEMS (invoice)
+// -------------------------------------------
+exports.viewOrder = (req, res) => {
+    const orderId = req.params.id;
+
+    // 1️⃣ Get order info
+    const orderSql = `SELECT * FROM orders WHERE id = ?`;
+
+    connection.query(orderSql, [orderId], (err, orderResults) => {
+        if (err) throw err;
+
+        if (orderResults.length === 0) {
+            req.flash('error', 'Order not found.');
             return res.redirect('/orders');
         }
 
-        Order.getOrderWithItems(orderId, (err, order) => {
-            if (err) {
-                console.error('Order.getOrderWithItems error:', err);
-                req.flash('error', 'Could not retrieve order details.');
-                return res.redirect('/orders');
-            }
+        const order = orderResults[0];
 
-            if (!order) {
-                req.flash('error', 'Order not found.');
-                return res.redirect('/orders');
-            }
+        // 2️⃣ Get items for this order
+        const itemsSql = `
+            SELECT oi.*, p.productName, p.image
+            FROM order_items oi
+            JOIN products p ON oi.productId = p.id
+            WHERE oi.orderId = ?
+        `;
 
-            // order = { header: {...}, items: [...] }
+        connection.query(itemsSql, [orderId], (err, items) => {
+            if (err) throw err;
+
             res.render('orderDetails', {
                 order,
+                items,
                 user: req.session.user,
-                messages: {
-                    success: req.flash('success'),
-                    error: req.flash('error')
-                }
+                messages: req.flash('success'),
+                errors: req.flash('error')
             });
         });
-    }
+    });
 };
-
-module.exports = OrderController;
