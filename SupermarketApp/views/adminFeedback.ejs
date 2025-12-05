@@ -1,0 +1,30 @@
+<%- include('partials/navbar', { user: user }) %>
+
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">User Feedback</h2>
+
+    <% if (!feedback || feedback.length === 0) { %>
+        <p class="text-center text-muted">No feedback submitted yet.</p>
+    <% } else { %>
+        <table class="table table-striped table-bordered shadow-sm">
+            <thead class="table-dark">
+                <tr>
+                    <th>User</th>
+                    <th>Subject</th>
+                    <th>Message</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% feedback.forEach(f => { %>
+                    <tr>
+                        <td><%= f.user %></td>
+                        <td><%= f.subject %></td>
+                        <td><%= f.message %></td>
+                        <td><%= f.date %></td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    <% } %>
+</div>

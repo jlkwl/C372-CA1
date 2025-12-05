@@ -8,8 +8,11 @@ const session = require('express-session');
 const flash = require('connect-flash');
 const multer = require('multer');
 
+// Controllers
 const ProductController = require('./controllers/ProductController');
 const OrderController = require('./controllers/OrderController');
+const FeedbackController = require('./controllers/FeedbackController');
+const User = require('./models/User');
 const CartDB = require('./models/CartDB');
 
 // ====================== FILE UPLOAD (MULTER) ======================
@@ -51,7 +54,7 @@ const checkAdmin = (req, res, next) => {
     res.redirect('/shopping');
 };
 
-// ====================== CART SYNC (LOAD FROM DB) ======================
+// ====================== CART SYNC ======================
 
 function syncCartFromDB(req, done) {
     if (!req.session.user) {
@@ -68,50 +71,46 @@ function syncCartFromDB(req, done) {
 
 // ====================== ROUTES ======================
 
-// -------- HOME --------
+// HOME
 app.get('/', (req, res) => {
     res.render('index', { user: req.session.user });
 });
 
-// -------- SHOPPING --------
+// SHOPPING
 app.get('/shopping', checkAuthenticated, ProductController.listAllProducts);
 
-// -------- INVENTORY (ADMIN) --------
+// INVENTORY (ADMIN)
 app.get('/inventory', checkAuthenticated, checkAdmin, ProductController.listAllProducts);
 
-// -------- PRODUCT DETAILS --------
+// PRODUCT DETAILS
 app.get('/product/:id', checkAuthenticated, ProductController.getProductById);
 
-// ====================== HELP CENTRE ======================
+// ====================== HELP / FEEDBACK ======================
 
 app.get('/help', checkAuthenticated, (req, res) => {
     res.render('help', {
         user: req.session.user,
         messages: req.flash('success'),
-        errors: req.flash('error'),
-        feedback: req.session.feedback || []
+        errors: req.flash('error')
     });
 });
 
-app.post('/help/feedback', checkAuthenticated, (req, res) => {
-    const { subject, message } = req.body;
+// Submit feedback (DB)
+app.post('/help/feedback', checkAuthenticated, FeedbackController.submitFeedback);
 
-    if (!subject || !message) {
-        req.flash('error', 'All fields are required.');
-        return res.redirect('/help');
-    }
+// Admin view feedback (DB)
+app.get('/admin/feedback', checkAuthenticated, checkAdmin, FeedbackController.listFeedback);
 
-    if (!req.session.feedback) req.session.feedback = [];
+// ====================== ADMIN USERS ======================
 
-    req.session.feedback.push({
-        user: req.session.user.username,
-        subject,
-        message,
-        date: new Date().toLocaleString()
+app.get('/admin/users', checkAuthenticated, checkAdmin, (req, res) => {
+    User.getAll((err, users) => {
+        if (err) throw err;
+        res.render('users', {
+            user: req.session.user,
+            users
+        });
     });
-
-    req.flash('success', 'Thank you for your feedback!');
-    res.redirect('/help');
 });
 
 // ====================== PRODUCT MANAGEMENT ======================
@@ -301,3 +300,4 @@ app.get('/order/:id', checkAuthenticated, OrderController.viewOrder);
 
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+
