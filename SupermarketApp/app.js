@@ -82,36 +82,54 @@ app.get('/inventory', checkAuthenticated, checkAdmin, ProductController.listAllP
 // -------- PRODUCT DETAILS --------
 app.get('/product/:id', checkAuthenticated, ProductController.getProductById);
 
-// -------- ADD PRODUCT --------
+// ====================== HELP CENTRE ======================
+
+app.get('/help', checkAuthenticated, (req, res) => {
+    res.render('help', {
+        user: req.session.user,
+        messages: req.flash('success'),
+        errors: req.flash('error'),
+        feedback: req.session.feedback || []
+    });
+});
+
+app.post('/help/feedback', checkAuthenticated, (req, res) => {
+    const { subject, message } = req.body;
+
+    if (!subject || !message) {
+        req.flash('error', 'All fields are required.');
+        return res.redirect('/help');
+    }
+
+    if (!req.session.feedback) req.session.feedback = [];
+
+    req.session.feedback.push({
+        user: req.session.user.username,
+        subject,
+        message,
+        date: new Date().toLocaleString()
+    });
+
+    req.flash('success', 'Thank you for your feedback!');
+    res.redirect('/help');
+});
+
+// ====================== PRODUCT MANAGEMENT ======================
+
 app.get('/addProduct', checkAuthenticated, checkAdmin, (req, res) => {
     res.render('addProduct', { user: req.session.user });
 });
 
-app.post(
-    '/addProduct',
-    checkAuthenticated,
-    checkAdmin,
-    upload.single('image'),
-    ProductController.addProduct
-);
+app.post('/addProduct', checkAuthenticated, checkAdmin, upload.single('image'), ProductController.addProduct);
 
-// -------- UPDATE PRODUCT --------
 app.get('/updateProduct/:id', checkAuthenticated, checkAdmin, ProductController.renderUpdateProductForm);
 
-app.post(
-    '/updateProduct/:id',
-    checkAuthenticated,
-    checkAdmin,
-    upload.single('image'),
-    ProductController.updateProduct
-);
+app.post('/updateProduct/:id', checkAuthenticated, checkAdmin, upload.single('image'), ProductController.updateProduct);
 
-// -------- DELETE PRODUCT --------
 app.get('/deleteProduct/:id', checkAuthenticated, checkAdmin, ProductController.deleteProduct);
 
-// ====================== CART (PERSISTENT) ======================
+// ====================== CART ======================
 
-// ADD TO CART
 app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id;
     const productId = parseInt(req.params.id);
@@ -125,7 +143,6 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
 
         const available = Number(product.quantity);
 
-        // Load existing item
         CartDB.getItem(userId, productId, (err2, existing) => {
             if (err2) {
                 req.flash('error', 'Cart error.');
@@ -149,7 +166,6 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     });
 });
 
-// VIEW CART
 app.get('/cart', checkAuthenticated, (req, res) => {
     syncCartFromDB(req, () => {
         res.render('cart', {
@@ -161,7 +177,6 @@ app.get('/cart', checkAuthenticated, (req, res) => {
     });
 });
 
-// UPDATE CART QUANTITY
 app.post('/cart/update', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id;
     const productId = req.body.productId;
@@ -185,7 +200,6 @@ app.post('/cart/update', checkAuthenticated, (req, res) => {
     });
 });
 
-// REMOVE ITEM
 app.post('/remove-from-cart/:id', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id;
     const productId = req.params.id;
@@ -198,7 +212,6 @@ app.post('/remove-from-cart/:id', checkAuthenticated, (req, res) => {
     });
 });
 
-// CLEAR CART
 app.post('/clear-cart', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id;
 
@@ -274,17 +287,14 @@ app.get('/logout', (req, res) => {
 
 // ====================== ORDERS ======================
 
-// CHECKOUT
 app.post('/checkout', checkAuthenticated, (req, res) => {
     syncCartFromDB(req, () => {
         OrderController.checkout(req, res);
     });
 });
 
-// LIST USER ORDERS
 app.get('/orders', checkAuthenticated, OrderController.listUserOrders);
 
-// ORDER DETAILS
 app.get('/order/:id', checkAuthenticated, OrderController.viewOrder);
 
 // ====================== START SERVER ======================
