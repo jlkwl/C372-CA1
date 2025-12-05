@@ -10,10 +10,33 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/css/style.css" />
+
     <style>
         body {
             background: #f7f7f7;
             font-family: Arial, Helvetica, sans-serif;
+        }
+
+        /* --- TOP NAVBAR --- */
+        .top-nav {
+            background: #24282f;
+            padding: 14px 30px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+        }
+
+        .top-nav a {
+            color: #bfc5d1;
+            text-decoration: none;
+            margin-left: 25px;
+            font-size: 17px;
+        }
+
+        .top-nav a:hover {
+            color: white;
         }
 
         .cart-container {
@@ -38,11 +61,6 @@
             margin-bottom: 20px;
         }
 
-        table {
-            width: 100%;
-            margin-bottom: 20px;
-        }
-
         td img {
             border-radius: 8px;
         }
@@ -60,16 +78,10 @@
             color: white;
             padding: 6px 12px;
             border-radius: 6px;
-            font-size: 14px;
         }
 
         .remove-btn:hover {
             background: #c9302c;
-        }
-
-        .cart-summary {
-            text-align: right;
-            margin-top: 20px;
         }
 
         .total-text {
@@ -88,10 +100,6 @@
             margin-right: 8px;
         }
 
-        .checkout-btn:hover {
-            background: #004a94;
-        }
-
         .clear-btn {
             background: #777;
             border: none;
@@ -102,23 +110,28 @@
             margin-right: 8px;
         }
 
-        .clear-btn:hover {
-            background: #555;
-        }
-
         .continue-link {
             font-size: 16px;
             text-decoration: none;
             color: #005EB8;
             font-weight: bold;
         }
-
-        .continue-link:hover {
-            text-decoration: underline;
-        }
     </style>
 </head>
+
 <body>
+
+    <!-- ⭐ TOP HEADER NAVBAR ⭐ -->
+    <div class="top-nav">
+        <div style="font-weight:600; font-size:20px;">Supermarket</div>
+
+        <div>
+            <a href="/shopping">Shop</a>
+            <a href="/cart">Cart</a>
+            <a href="/orders">My Orders</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </div>
 
     <div class="cart-container">
 
@@ -128,7 +141,7 @@
             <p class="welcome-text">Welcome, <%= user.username || user.name || "User" %></p>
         <% } %>
 
-        <!-- 🔴 ERROR MESSAGES (e.g. out of stock) -->
+        <!-- ERROR MESSAGES -->
         <% if (errors && errors.length) { %>
             <div class="alert alert-danger">
                 <% errors.forEach(function(e){ %>
@@ -137,7 +150,7 @@
             </div>
         <% } %>
 
-        <!-- 🟢 SUCCESS MESSAGES -->
+        <!-- SUCCESS MESSAGES -->
         <% if (messages && messages.length) { %>
             <div class="alert alert-success">
                 <% messages.forEach(function(m){ %>
@@ -170,19 +183,18 @@
                 <tr>
                     <td>
                         <% if (item.image) { %>
-                            <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="width:80px;">
+                        <img src="/images/<%= item.image %>" style="width:80px;">
                         <% } %>
                     </td>
 
                     <td><strong><%= item.productName %></strong></td>
 
-                    <td>$<%= Number(item.price).toFixed(2) %></td>
+                    <td>$<%= item.price.toFixed(2) %></td>
 
                     <td>
                         <form action="/cart/update" method="post">
                             <input type="number" name="quantity" min="1" value="<%= item.quantity %>">
                             <input type="hidden" name="productId" value="<%= item.productId %>">
-                            <button style="display:none;"></button>
                         </form>
                     </td>
 
