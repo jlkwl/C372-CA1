@@ -1,3 +1,5 @@
+<%- include('partials/navbar', { user: user }) %>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,26 +10,8 @@
   <title>Supermarket App</title>
 </head>
 <body>
-    <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="/">Supermarket App</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="collapsibleNavbar">
-          <ul class="navbar-nav">
-            <li class="nav-item">
-              <a class="nav-link" href="/addProduct">Add Product</a>
-            </li> 
-            <li class="nav-item">
-              <a class="nav-link" href="/logout">Logout</a>
-            </li> 
-          </ul>
-        </div>
-      </div>
-    </nav>
 
-  <div class="container">
+  <div class="container mt-4">
     <p>Welcome, <%= user.username %> (<%= user.role %>)</p>
     <br>
     <div class="text-center"><h2>Products from Supermarket App Database</h2></div>
@@ -47,11 +31,13 @@
         <% for(let i=0; i < products.length; i++) { %>
           <tr>
             <td><a href="/product/<%= products[i].id %>" ><%= products[i].productName %></a></td>
-            <td><img src = "images/<%= products[i].image %>" width="20%"></td>
+            <td><img src="images/<%= products[i].image %>" width="20%"></td>
             <td><%= products[i].quantity %></td>
             <td>$<%= products[i].price.toFixed(2) %></td>
+
             <!-- Edit Link -->
             <td><a href="/updateProduct/<%= products[i].id %>">Edit</a></td>
+
             <!-- Delete Link -->
             <td><a href="/deleteProduct/<%= products[i].id %>" onclick="return confirm('Are you sure you want to delete this product?')">Delete</a></td>
           </tr>
@@ -59,5 +45,6 @@
       </tbody>
     </table>
   </div>
+
 </body>
 </html>
