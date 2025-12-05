@@ -12,10 +12,9 @@ const multer = require('multer');
 const ProductController = require('./controllers/ProductController');
 const OrderController = require('./controllers/OrderController');
 const FeedbackController = require('./controllers/FeedbackController');
-const User = require('./models/User');
 const CartDB = require('./models/CartDB');
 
-// ====================== FILE UPLOAD (MULTER) ======================
+// ====================== MULTER (IMAGE UPLOAD) ======================
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'public/images'),
@@ -23,7 +22,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ====================== APP CONFIG ======================
+// ====================== APP SETTINGS ======================
 
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
@@ -34,7 +33,7 @@ app.use(
         secret: 'supermarket-secret',
         resave: false,
         saveUninitialized: true,
-        cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
+        cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 } // 7 days
     })
 );
 
@@ -54,7 +53,7 @@ const checkAdmin = (req, res, next) => {
     res.redirect('/shopping');
 };
 
-// ====================== CART SYNC ======================
+// ====================== CART SYNC (DB → SESSION) ======================
 
 function syncCartFromDB(req, done) {
     if (!req.session.user) {
@@ -71,21 +70,51 @@ function syncCartFromDB(req, done) {
 
 // ====================== ROUTES ======================
 
-// HOME
+// -------- HOME ----------
 app.get('/', (req, res) => {
     res.render('index', { user: req.session.user });
 });
 
-// SHOPPING
+// -------- SHOPPING ----------
 app.get('/shopping', checkAuthenticated, ProductController.listAllProducts);
 
-// INVENTORY (ADMIN)
-app.get('/inventory', checkAuthenticated, checkAdmin, ProductController.listAllProducts);
-
-// PRODUCT DETAILS
+// -------- PRODUCT DETAILS ----------
 app.get('/product/:id', checkAuthenticated, ProductController.getProductById);
 
-// ====================== HELP / FEEDBACK ======================
+// ====================== ADMIN INVENTORY ======================
+app.get('/inventory', checkAuthenticated, checkAdmin, ProductController.listAllProducts);
+
+app.get('/addProduct', checkAuthenticated, checkAdmin, (req, res) => {
+    res.render('addProduct', { user: req.session.user });
+});
+
+app.post('/addProduct',
+    checkAuthenticated,
+    checkAdmin,
+    upload.single('image'),
+    ProductController.addProduct
+);
+
+app.get('/updateProduct/:id',
+    checkAuthenticated,
+    checkAdmin,
+    ProductController.renderUpdateProductForm
+);
+
+app.post('/updateProduct/:id',
+    checkAuthenticated,
+    checkAdmin,
+    upload.single('image'),
+    ProductController.updateProduct
+);
+
+app.get('/deleteProduct/:id',
+    checkAuthenticated,
+    checkAdmin,
+    ProductController.deleteProduct
+);
+
+// ====================== HELP CENTRE (USER) ======================
 
 app.get('/help', checkAuthenticated, (req, res) => {
     res.render('help', {
@@ -95,37 +124,31 @@ app.get('/help', checkAuthenticated, (req, res) => {
     });
 });
 
-// Submit feedback (DB)
+// USER submits feedback
 app.post('/help/feedback', checkAuthenticated, FeedbackController.submitFeedback);
 
-// Admin view feedback (DB)
-app.get('/admin/feedback', checkAuthenticated, checkAdmin, FeedbackController.listFeedback);
+// ====================== FEEDBACK DASHBOARD (ADMIN) ======================
 
-// ====================== ADMIN USERS ======================
+// Admin view all feedback
+app.get('/admin/feedback',
+    checkAuthenticated,
+    checkAdmin,
+    FeedbackController.listFeedback
+);
 
-app.get('/admin/users', checkAuthenticated, checkAdmin, (req, res) => {
-    User.getAll((err, users) => {
-        if (err) throw err;
-        res.render('users', {
-            user: req.session.user,
-            users
-        });
-    });
-});
+// Admin delete feedback
+app.post('/admin/feedback/delete/:id',
+    checkAuthenticated,
+    checkAdmin,
+    FeedbackController.deleteFeedback
+);
 
-// ====================== PRODUCT MANAGEMENT ======================
-
-app.get('/addProduct', checkAuthenticated, checkAdmin, (req, res) => {
-    res.render('addProduct', { user: req.session.user });
-});
-
-app.post('/addProduct', checkAuthenticated, checkAdmin, upload.single('image'), ProductController.addProduct);
-
-app.get('/updateProduct/:id', checkAuthenticated, checkAdmin, ProductController.renderUpdateProductForm);
-
-app.post('/updateProduct/:id', checkAuthenticated, checkAdmin, upload.single('image'), ProductController.updateProduct);
-
-app.get('/deleteProduct/:id', checkAuthenticated, checkAdmin, ProductController.deleteProduct);
+// Admin reply to feedback
+app.post('/admin/feedback/reply/:id',
+    checkAuthenticated,
+    checkAdmin,
+    FeedbackController.replyFeedback
+);
 
 // ====================== CART ======================
 
@@ -165,6 +188,7 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     });
 });
 
+// VIEW CART
 app.get('/cart', checkAuthenticated, (req, res) => {
     syncCartFromDB(req, () => {
         res.render('cart', {
@@ -176,6 +200,7 @@ app.get('/cart', checkAuthenticated, (req, res) => {
     });
 });
 
+// UPDATE CART QUANTITY
 app.post('/cart/update', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id;
     const productId = req.body.productId;
@@ -199,6 +224,7 @@ app.post('/cart/update', checkAuthenticated, (req, res) => {
     });
 });
 
+// REMOVE ITEM
 app.post('/remove-from-cart/:id', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id;
     const productId = req.params.id;
@@ -211,6 +237,7 @@ app.post('/remove-from-cart/:id', checkAuthenticated, (req, res) => {
     });
 });
 
+// CLEAR CART
 app.post('/clear-cart', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id;
 
@@ -231,6 +258,7 @@ app.get('/register', (req, res) => {
 });
 
 app.post('/register', (req, res) => {
+
     const { username, email, password, address, contact, role } = req.body;
 
     if (!username || !email || !password || !address || !contact || !role) {
@@ -238,8 +266,10 @@ app.post('/register', (req, res) => {
         return res.redirect('/register');
     }
 
-    const sql = `INSERT INTO users (username, email, password, address, contact, role)
-                 VALUES (?, ?, SHA1(?), ?, ?, ?)`;
+    const sql = `
+        INSERT INTO users (username, email, password, address, contact, role)
+        VALUES (?, ?, SHA1(?), ?, ?, ?)
+    `;
 
     connection.query(sql, [username, email, password, address, contact, role], err => {
         if (err) throw err;
@@ -259,7 +289,10 @@ app.get('/login', (req, res) => {
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
 
-    const sql = `SELECT * FROM users WHERE email = ? AND password = SHA1(?)`;
+    const sql = `
+        SELECT * FROM users
+        WHERE email = ? AND password = SHA1(?)
+    `;
 
     connection.query(sql, [email, password], (err, results) => {
         if (err) throw err;
@@ -280,6 +313,7 @@ app.post('/login', (req, res) => {
     });
 });
 
+// LOGOUT
 app.get('/logout', (req, res) => {
     req.session.destroy(() => res.redirect('/'));
 });
@@ -293,19 +327,11 @@ app.post('/checkout', checkAuthenticated, (req, res) => {
 });
 
 app.get('/orders', checkAuthenticated, OrderController.listUserOrders);
-
 app.get('/order/:id', checkAuthenticated, OrderController.viewOrder);
 
-// ====================== ADMIN FEEDBACK PAGE ======================
-app.get('/admin/feedback', checkAuthenticated, checkAdmin, (req, res) => {
-    res.render('adminFeedback', {
-        user: req.session.user,
-        feedback: req.session.feedback || []
-    });
-});
-
-// ====================== START SERVER ======================
+// ====================== SERVER START ======================
 
 const PORT = 3000;
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
-
+app.listen(PORT, () =>
+    console.log(`Server running at http://localhost:${PORT}`)
+);
