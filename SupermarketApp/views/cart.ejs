@@ -219,5 +219,13 @@
 
     </div>
 
+    <script>
+    document.querySelectorAll('input[name="quantity"]').forEach(input => {
+        input.addEventListener('change', () => {
+            input.form.submit();
+        });
+    });
+</script>
+
 </body>
 </html>
