@@ -296,6 +296,14 @@ app.get('/orders', checkAuthenticated, OrderController.listUserOrders);
 
 app.get('/order/:id', checkAuthenticated, OrderController.viewOrder);
 
+// ====================== ADMIN FEEDBACK PAGE ======================
+app.get('/admin/feedback', checkAuthenticated, checkAdmin, (req, res) => {
+    res.render('adminFeedback', {
+        user: req.session.user,
+        feedback: req.session.feedback || []
+    });
+});
+
 // ====================== START SERVER ======================
 
 const PORT = 3000;
