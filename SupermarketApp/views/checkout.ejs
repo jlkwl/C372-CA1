@@ -65,12 +65,23 @@
       border-radius: 12px;
       padding: 14px;
     }
+
+    /* ✅ NETS styling */
     .nets-box{
-      background:#ecfdf5;
-      border: 1px solid #a7f3d0;
+      background:#eafff3;
+      border: 1px solid #98e3b8;
       border-radius: 12px;
       padding: 14px;
     }
+    .btn-nets{
+      background:#3bb77e;
+      border:none;
+      color:#fff;
+      padding:10px 18px;
+      border-radius: 10px;
+    }
+    .btn-nets:hover{ background:#2ea06b; }
+
     .btn-back{
       background:#6b7280;
       border:none;
@@ -81,16 +92,6 @@
       display:inline-block;
     }
     .btn-back:hover{ background:#4b5563; color:#fff; }
-
-    .btn-nets{
-      background:#10b981;
-      border:none;
-      color:#fff;
-      padding:10px 16px;
-      border-radius: 10px;
-      display:inline-block;
-    }
-    .btn-nets:hover{ background:#059669; color:#fff; }
   </style>
 </head>
 
@@ -148,7 +149,7 @@
         </div>
 
         <div class="col-md-8">
-          <!-- PayPal -->
+          <!-- ✅ PayPal (UNCHANGED logic) -->
           <div id="paypalPanel" class="pay-panel">
             <div class="paypal-box">
               <div class="fw-bold mb-1">Pay with PayPal</div>
@@ -159,20 +160,20 @@
             </div>
           </div>
 
-          <!-- NETS QR -->
+          <!-- ✅ NETS QR panel -->
           <div id="netsPanel" class="pay-panel" style="display:none;">
             <div class="nets-box">
               <div class="fw-bold mb-1">Pay with NETS QR</div>
               <div class="subtle mb-3">Click the button to generate a NETS QR code for payment.</div>
 
-              <!-- IMPORTANT: This uses your existing backend route (same as your cart button used). -->
               <form action="/pay/nets" method="post">
+                <!-- ✅ THIS is the important part: send the cart total -->
+                <input type="hidden" name="cartTotal" value="<%= Number(total || 0).toFixed(2) %>">
                 <button type="submit" class="btn-nets">Generate NETS QR</button>
               </form>
             </div>
           </div>
 
-          <!-- Bank -->
           <div id="bankPanel" class="pay-panel" style="display:none;">
             <div class="fw-bold mb-1">Bank Transfer (Demo)</div>
             <div class="subtle">This is a placeholder option for your assignment UI.</div>
@@ -186,7 +187,7 @@
     </div>
   </div>
 
-  <!-- ✅ PayPal stays EXACTLY the same -->
+  <!-- ✅ IMPORTANT: PayPal SDK stays exactly the same -->
   <script src="https://www.paypal.com/sdk/js?client-id=<%= PAYPAL_CLIENT_ID %>&currency=SGD"></script>
 
   <script>
@@ -199,8 +200,8 @@
     function switchMethod(){
       const m = paymentMethodEl.value;
       paypalPanel.style.display = (m === "paypal") ? "block" : "none";
-      netsPanel.style.display   = (m === "nets")   ? "block" : "none";
-      bankPanel.style.display   = (m === "bank")   ? "block" : "none";
+      netsPanel.style.display = (m === "nets") ? "block" : "none";
+      bankPanel.style.display = (m === "bank") ? "block" : "none";
     }
     paymentMethodEl.addEventListener("change", switchMethod);
     switchMethod();
@@ -208,6 +209,7 @@
     // server total
     const total = Number("<%= Number(total || 0).toFixed(2) %>");
 
+    /* ✅ PayPal logic BELOW is UNCHANGED */
     paypal.Buttons({
       createOrder: async function () {
         paypalStatus.textContent = "Creating PayPal order...";

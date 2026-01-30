@@ -395,11 +395,31 @@ app.get("/paypal/success", checkAuthenticated, (req, res) => {
   });
 });
 
-// ====================== NETS (OPTIONAL) ======================
+// NETS QR: compute total from the user's cart (DB-synced) instead of relying on req.body
+app.post('/pay/nets', checkAuthenticated, (req, res) => {
+  syncCartFromDB(req, (err) => {
+    if (err) {
+      console.error('NETS syncCartFromDB error:', err);
+      return res.render('netsQrFail', {
+        title: 'Payment Failed',
+        errorMsg: 'Unable to load cart for NETS payment. Please try again.',
+        responseCode: 'SERVER_ERROR',
+        instructions: 'Please try again.',
+        total: '0.00',
+        user: req.session.user
+      });
+    }
 
-if (netsQr) {
-  app.post("/pay/nets", checkAuthenticated, (req, res) => netsQr.generateQrCode(req, res));
-}
+    const cart = req.session.cart || [];
+    const total = calcCartTotal(cart);
+
+    // Put the computed total where nets.js expects it
+    req.body.cartTotal = total;
+
+    return netsQr.generateQrCode(req, res);
+  });
+});
+
 
 // ====================== SERVER START ======================
 

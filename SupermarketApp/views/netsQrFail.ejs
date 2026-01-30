@@ -1,236 +1,89 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8" />
-    <title><%= title %></title>
+  <meta charset="utf-8" />
+  <title><%= title || 'Payment Failed' %></title>
 
-    <!-- Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/css/style.css" />
-    <style>
-        body {
-            background: #f7f7f7;
-            font-family: Arial, Helvetica, sans-serif;
-        }
-
-        .nets-payment-container {
-            max-width: 600px;
-            margin: 40px auto;
-            padding: 30px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
-        h1 {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #333;
-        }
-
-        .nets-subtitle {
-            color: #666;
-            margin-bottom: 25px;
-            font-size: 14px;
-        }
-
-        .qr-section {
-            margin: 30px 0;
-            padding: 20px;
-            background: #f9f9f9;
-            border-radius: 8px;
-        }
-
-        .qr-code-image {
-            max-width: 300px;
-            width: 100%;
-            margin: 0 auto;
-        }
-
-        .nets-info {
-            margin: 25px 0;
-            text-align: center;
-        }
-
-        .nets-info img {
-            max-width: 150px;
-            margin: 10px 0;
-        }
-
-        .payment-total {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 20px 0;
-            color: #005EB8;
-        }
-
-        .timer-section {
-            margin: 20px 0;
-            font-size: 16px;
-        }
-
-        .timer {
-            font-weight: bold;
-            color: #d9534f;
-            font-size: 20px;
-        }
-
-        .payment-status {
-            margin-top: 30px;
-            padding: 15px;
-            border-radius: 6px;
-            display: none;
-        }
-
-        .payment-status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .payment-status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .payment-status.loading {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .instructions {
-            background: #e7f3ff;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            color: #333;
-            border-left: 4px solid #005EB8;
-        }
-
-        .cancel-link {
-            margin-top: 20px;
-        }
-
-        .cancel-link a {
-            color: #666;
-            text-decoration: none;
-            font-size: 14px;
-        }
-
-        .cancel-link a:hover {
-            text-decoration: underline;
-        }
-    </style>
+  <style>
+    body{ background:#f4f6f9; font-family: Arial, Helvetica, sans-serif; }
+    .page-wrap{ max-width: 980px; margin: 40px auto; padding: 0 16px; }
+    .card-soft{
+      background:#fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      padding: 26px;
+    }
+    .title{
+      font-size: 56px;
+      font-weight: 900;
+      color:#111827;
+      margin: 0 0 6px;
+    }
+    .sub{
+      color:#6b7280;
+      font-size: 16px;
+      margin-bottom: 18px;
+    }
+    .error-box{
+      border: 1px solid #f1b4b9;
+      background:#f8d7da;
+      color:#842029;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-weight: 700;
+      margin: 16px 0;
+    }
+    .meta{
+      font-size: 16px;
+      margin: 10px 0;
+    }
+    .meta b{ color:#111827; }
+    .btn-back{
+      background:#6b7280;
+      border:none;
+      color:#fff;
+      padding:10px 18px;
+      border-radius: 10px;
+      text-decoration:none;
+      display:inline-block;
+    }
+    .btn-back:hover{ background:#4b5563; color:#fff; }
+    .btn-outline{
+      border: 1px solid #9ca3af;
+      background:#fff;
+      color:#111827;
+      padding:10px 18px;
+      border-radius: 10px;
+      text-decoration:none;
+      display:inline-block;
+    }
+    .btn-outline:hover{ background:#f3f4f6; color:#111827; }
+  </style>
 </head>
+
 <body>
-    <%- include('partials/header', { user: user }) %>
+  <%- include('partials/header', { user: user }) %>
 
-    <div class="nets-payment-container">
-        <h1><%= title %></h1>
-        <p class="nets-subtitle">Scan the QR code with your mobile device to pay</p>
+  <div class="page-wrap">
+    <div class="card-soft">
+      <div class="title">Payment Failed</div>
+      <div class="sub">NETS QR payment could not be completed.</div>
 
-        <div class="instructions">
-            <strong>Instructions:</strong> Use your banking app to scan this QR code and complete the payment.
-        </div>
+      <div class="error-box">
+        Error: <%= errorMsg || 'Payment failed.' %>
+      </div>
 
-        <div class="payment-total">
-            Total: $<%= Number(total).toFixed(2) %>
-        </div>
+      <div class="meta"><b>Response Code:</b> <%= responseCode || 'N.A.' %></div>
+      <div class="meta"><b>Total:</b> $<%= (total != null ? total : '0.00') %></div>
+      <div class="meta"><b>Instructions:</b> <%= instructions || 'Please try again.' %></div>
 
-        <div class="qr-section">
-            <% if (qrCodeUrl) { %>
-                <img src="<%= qrCodeUrl %>" alt="NETS QR Code" class="qr-code-image">
-            <% } %>
-
-            <div class="nets-info">
-                <% if (fs && fs.existsSync('./public/images/netsQrInfo.png')) { %>
-                    <img src="/images/netsQrInfo.png" alt="NETS QR Payment Info">
-                <% } %>
-            </div>
-
-            <div class="timer-section">
-                Payment expires in: <span class="timer" id="timer">300</span> seconds
-            </div>
-        </div>
-
-        <div id="paymentStatus" class="payment-status"></div>
-
-        <div class="cancel-link">
-            <a href="/cart">← Back to Cart</a>
-        </div>
+      <div class="mt-4 d-flex gap-2">
+        <a href="/checkout" class="btn-back">Back to Checkout</a>
+        <a href="/cart" class="btn-outline">Back to Cart</a>
+      </div>
     </div>
-
-    <script>
-        const txnRetrievalRef = '<%= txnRetrievalRef %>';
-        const statusElement = document.getElementById('paymentStatus');
-        let countdownSeconds = 300;
-        let pollCompleted = false;
-
-        // Update countdown timer
-        function updateTimer() {
-            countdownSeconds--;
-            document.getElementById('timer').textContent = countdownSeconds;
-            if (countdownSeconds <= 0) {
-                statusElement.style.display = 'block';
-                statusElement.className = 'payment-status error';
-                statusElement.innerHTML = 'Payment session expired. <a href="/cart">Return to cart</a>';
-                clearTimeout(timerInterval);
-            }
-        }
-
-        const timerInterval = setInterval(updateTimer, 1000);
-
-        // Connect to SSE endpoint for payment status updates
-        function startPaymentPolling() {
-            const eventSource = new EventSource(`/sse/payment-status/${txnRetrievalRef}`);
-
-            eventSource.onmessage = function(event) {
-                const status = JSON.parse(event.data);
-                console.log('Payment status:', status);
-
-                if (status.paid) {
-                    pollCompleted = true;
-                    clearInterval(timerInterval);
-                    eventSource.close();
-                    
-                    statusElement.style.display = 'block';
-                    statusElement.className = 'payment-status success';
-                    statusElement.innerHTML = '<strong>✓ Payment Successful!</strong> Redirecting to checkout...';
-                    
-                    // Redirect to success after 2 seconds
-                    setTimeout(() => {
-                        window.location.href = '/nets-qr/success';
-                    }, 2000);
-                } else if (status.failed || status.error) {
-                    pollCompleted = true;
-                    clearInterval(timerInterval);
-                    eventSource.close();
-                    
-                    statusElement.style.display = 'block';
-                    statusElement.className = 'payment-status error';
-                    statusElement.innerHTML = '<strong>✗ Payment Failed</strong> <a href="/nets-qr/fail">Try Again</a>';
-                }
-            };
-
-            eventSource.onerror = function(error) {
-                if (!pollCompleted) {
-                    console.error('SSE Error:', error);
-                    eventSource.close();
-                }
-            };
-        }
-
-        // Start polling for payment status when page loads
-        window.addEventListener('load', startPaymentPolling);
-    </script>
-
+  </div>
 </body>
 </html>
