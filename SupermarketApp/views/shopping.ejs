@@ -65,8 +65,8 @@
             Search
         </button>
 
-        <ul id="suggestions" 
-            class="list-group position-absolute w-100" 
+        <ul id="suggestions"
+            class="list-group position-absolute w-100"
             style="z-index: 99; display: none;"></ul>
     </form>
 
@@ -98,7 +98,7 @@
                         <%= outStock ? 'Out of stock' : 'In stock' %>
                     </span>
 
-                    <p class="mt-2">$<%= p.price.toFixed(2) %></p>
+                    <p class="mt-2">$<%= Number(p.price).toFixed(2) %></p>
 
                     <% if (!outStock) { %>
                         <form action="/add-to-cart/<%= p.id %>" method="POST">
@@ -119,49 +119,52 @@
 </div>
 
 <script>
-// LIVE SEARCH DROPDOWN
-const box = document.getElementById("searchBox");
-const sug = document.getElementById("suggestions");
+    // LIVE SEARCH DROPDOWN
+    const box = document.getElementById("searchBox");
+    const sug = document.getElementById("suggestions");
 
-box.addEventListener("input", () => {
-    const term = box.value.trim();
+    box.addEventListener("input", () => {
+        const term = box.value.trim();
 
-    if (term.length === 0) {
-        sug.style.display = "none";
-        return;
-    }
+        if (term.length === 0) {
+            sug.style.display = "none";
+            return;
+        }
 
-    fetch(`/search-suggestions?term=${term}`)
-        .then(r => r.json())
-        .then(list => {
-            sug.innerHTML = "";
+        fetch(`/search-suggestions?term=${encodeURIComponent(term)}`)
+            .then(r => r.json())
+            .then(list => {
+                sug.innerHTML = "";
 
-            if (list.length === 0) {
-                sug.style.display = "none";
-                return;
-            }
-
-            list.forEach(item => {
-                const li = document.createElement("li");
-                li.className = "list-group-item";
-                li.style.cursor = "pointer";
-                li.innerText = item;
-
-                li.onclick = () => {
-                    box.value = item;
+                if (!list || list.length === 0) {
                     sug.style.display = "none";
-                };
+                    return;
+                }
 
-                sug.appendChild(li);
+                list.forEach(item => {
+                    const li = document.createElement("li");
+                    li.className = "list-group-item";
+                    li.style.cursor = "pointer";
+                    li.innerText = item;
+
+                    li.onclick = () => {
+                        box.value = item;
+                        sug.style.display = "none";
+                    };
+
+                    sug.appendChild(li);
+                });
+
+                sug.style.display = "block";
+            })
+            .catch(() => {
+                sug.style.display = "none";
             });
+    });
 
-            sug.style.display = "block";
-        });
-});
-
-document.addEventListener("click", (e) => {
-    if (!box.contains(e.target)) sug.style.display = "none";
-});
+    document.addEventListener("click", (e) => {
+        if (!box.contains(e.target)) sug.style.display = "none";
+    });
 </script>
 
 </body>
