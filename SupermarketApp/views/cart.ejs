@@ -117,13 +117,8 @@
                 $<%= cart.reduce((sum, i) => sum + i.price * i.quantity, 0).toFixed(2) %>
             </p>
 
-            <!-- ✅ IMPORTANT: go to GET /checkout to show invoice + PayPal -->
+            <!-- ✅ Go to checkout for payment method selection -->
             <a href="/checkout" class="checkout-btn">Proceed to Checkout</a>
-
-            <!-- optional: keep nets button if you want -->
-            <form action="/pay/nets" method="post" style="display:inline">
-                <button type="submit" class="checkout-btn" style="background: #1abc9c;">Pay with NETS QR</button>
-            </form>
 
             <form action="/clear-cart" method="post" style="display:inline">
                 <button type="submit" class="clear-btn">Clear Cart</button>
