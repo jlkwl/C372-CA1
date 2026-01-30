@@ -206,8 +206,18 @@
                 $<%= cart.reduce((sum, i) => sum + i.price * i.quantity, 0).toFixed(2) %>
             </p>
 
+        <div class="cart-summary">
+            <p class="total-text">
+                Total:
+                $<%= cart.reduce((sum, i) => sum + i.price * i.quantity, 0).toFixed(2) %>
+            </p>
+
             <form action="/checkout" method="post" style="display:inline">
                 <button type="submit" class="checkout-btn">Checkout</button>
+            </form>
+
+            <form action="/pay/nets" method="post" style="display:inline">
+                <button type="submit" class="checkout-btn" style="background: #1abc9c;">Pay with NETS QR</button>
             </form>
 
             <form action="/clear-cart" method="post" style="display:inline">
