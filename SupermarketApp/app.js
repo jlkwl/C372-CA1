@@ -1,4 +1,5 @@
 // ====================== SETUP ======================
+
 const express = require("express");
 const path = require("path");
 const app = express();
@@ -13,12 +14,12 @@ require("dotenv").config();
 // Services
 const paypal = require("./services/paypal");
 
-// Optional: NETS (keep if you want)
+// (Optional) NETS - keep if you want
 let netsQr = null;
 try {
   netsQr = require("./services/nets");
 } catch (e) {
-  // ignore if removed
+  // ignore if you removed nets
 }
 
 // Controllers
@@ -28,6 +29,7 @@ const FeedbackController = require("./controllers/FeedbackController");
 const CartDB = require("./models/CartDB");
 
 // ====================== MULTER (IMAGE UPLOAD) ======================
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, "public/images")),
   filename: (req, file, cb) => cb(null, file.originalname),
@@ -35,7 +37,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ====================== APP SETTINGS ======================
+
 app.set("view engine", "ejs");
+
+// ✅ IMPORTANT: always point to correct views folder
 app.set("views", path.join(__dirname, "views"));
 
 app.use(express.static(path.join(__dirname, "public")));
@@ -53,13 +58,14 @@ app.use(
 
 app.use(flash());
 
-// Make user available globally in EJS
+// ✅ Make user available in all EJS (no need to pass every time)
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   next();
 });
 
 // ====================== AUTH MIDDLEWARE ======================
+
 const checkAuthenticated = (req, res, next) => {
   if (req.session.user) return next();
   req.flash("error", "Please log in first.");
@@ -73,6 +79,7 @@ const checkAdmin = (req, res, next) => {
 };
 
 // ====================== CART SYNC (DB → SESSION) ======================
+
 function syncCartFromDB(req, done) {
   if (!req.session.user) {
     req.session.cart = [];
@@ -84,6 +91,10 @@ function syncCartFromDB(req, done) {
     req.session.cart = items || [];
     done(null);
   });
+}
+
+function calcCartTotal(cart) {
+  return (cart || []).reduce((sum, i) => sum + Number(i.price) * Number(i.quantity), 0);
 }
 
 // ====================== ROUTES ======================
@@ -100,6 +111,7 @@ app.get("/shopping", checkAuthenticated, ProductController.listAllProducts);
 app.get("/product/:id", checkAuthenticated, ProductController.getProductById);
 
 // ====================== ADMIN INVENTORY ======================
+
 app.get("/inventory", checkAuthenticated, checkAdmin, ProductController.listAllProducts);
 
 app.get("/addProduct", checkAuthenticated, checkAdmin, (req, res) => {
@@ -115,6 +127,7 @@ app.post("/updateProduct/:id", checkAuthenticated, checkAdmin, upload.single("im
 app.get("/deleteProduct/:id", checkAuthenticated, checkAdmin, ProductController.deleteProduct);
 
 // ====================== HELP CENTRE ======================
+
 app.get("/help", checkAuthenticated, (req, res) => {
   res.render("help", {
     user: req.session.user,
@@ -125,12 +138,14 @@ app.get("/help", checkAuthenticated, (req, res) => {
 
 app.post("/help/feedback", checkAuthenticated, FeedbackController.submitFeedback);
 
-// ====================== FEEDBACK DASHBOARD (ADMIN) ======================
+// ====================== FEEDBACK (ADMIN) ======================
+
 app.get("/admin/feedback", checkAuthenticated, checkAdmin, FeedbackController.listFeedback);
 app.post("/admin/feedback/delete/:id", checkAuthenticated, checkAdmin, FeedbackController.deleteFeedback);
 app.post("/admin/feedback/reply/:id", checkAuthenticated, checkAdmin, FeedbackController.replyFeedback);
 
 // ====================== CART ======================
+
 app.post("/add-to-cart/:id", checkAuthenticated, (req, res) => {
   const userId = req.session.user.id;
   const productId = parseInt(req.params.id, 10);
@@ -227,24 +242,29 @@ app.post("/clear-cart", checkAuthenticated, (req, res) => {
   });
 });
 
-// ====================== CHECKOUT (Invoice + Payment Methods) ======================
+// ====================== CHECKOUT PAGE (INVOICE + PAYMENT) ======================
+
 app.get("/checkout", checkAuthenticated, (req, res) => {
   syncCartFromDB(req, () => {
     const cart = req.session.cart || [];
-    const total = cart.reduce((sum, i) => sum + Number(i.price) * Number(i.quantity), 0);
+    const total = calcCartTotal(cart);
 
-    // IMPORTANT: this fixes "paypalClientId is not defined"
+    if (!cart.length) {
+      req.flash("error", "Your cart is empty.");
+      return res.redirect("/cart");
+    }
+
     res.render("checkout", {
       user: req.session.user,
       cart,
       total,
-      paypalClientId: process.env.PAYPAL_CLIENT_ID,
-      invoiceNo: Date.now(), // simple invoice number
+      PAYPAL_CLIENT_ID: process.env.PAYPAL_CLIENT_ID || "",
     });
   });
 });
 
 // ====================== AUTH ======================
+
 app.get("/register", (req, res) => {
   res.render("register", {
     messages: req.flash("error"),
@@ -309,8 +329,9 @@ app.get("/logout", (req, res) => {
 });
 
 // ====================== ORDERS ======================
-app.post("/checkout-old", checkAuthenticated, (req, res) => {
-  // keep your old checkout flow if you still use it somewhere
+
+app.post("/place-order", checkAuthenticated, (req, res) => {
+  // If your OrderController.checkout already exists, keep using it:
   syncCartFromDB(req, () => OrderController.checkout(req, res));
 });
 
@@ -318,57 +339,69 @@ app.get("/orders", checkAuthenticated, OrderController.listUserOrders);
 app.get("/order/:id", checkAuthenticated, OrderController.viewOrder);
 
 // ====================== PAYPAL API ======================
+
+// Create PayPal order
 app.post("/api/paypal/create-order", checkAuthenticated, async (req, res) => {
   try {
-    // Prefer server-side total (avoid client tampering)
-    await new Promise((resolve) => syncCartFromDB(req, resolve));
+    await new Promise((resolve) => syncCartFromDB(req, () => resolve()));
+
     const cart = req.session.cart || [];
-    const total = cart.reduce((sum, i) => sum + Number(i.price) * Number(i.quantity), 0);
+    const total = calcCartTotal(cart);
 
     if (!cart.length || total <= 0) {
-      return res.status(400).json({ message: "Cart is empty." });
+      return res.status(400).json({ error: "Cart is empty." });
     }
 
-    const order = await paypal.createOrder(total, "SGD");
-    return res.json({ id: order.id });
+    const order = await paypal.createOrder(total);
+
+    if (order && order.id) return res.json({ id: order.id });
+    return res.status(500).json({ error: "Failed to create PayPal order", details: order });
   } catch (err) {
-    console.error("PayPal create-order error:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to create PayPal order" });
+    console.error("PayPal create-order error:", err.message);
+    return res.status(500).json({ error: "Failed to create PayPal order", message: err.message });
   }
 });
 
+// Capture PayPal order
 app.post("/api/paypal/capture-order", checkAuthenticated, async (req, res) => {
   try {
     const { orderID } = req.body;
     if (!orderID) return res.status(400).json({ error: "Missing orderID" });
 
     const capture = await paypal.captureOrder(orderID);
-    return res.json(capture);
+
+    if (capture && capture.status === "COMPLETED") {
+      return res.json({ status: "COMPLETED" });
+    }
+
+    return res.status(400).json({ error: "Payment not completed", details: capture });
   } catch (err) {
-    console.error("PayPal capture-order error:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to capture PayPal order" });
+    console.error("PayPal capture-order error:", err.message);
+    return res.status(500).json({ error: "Failed to capture PayPal order", message: err.message });
   }
 });
 
-// Success page after PayPal capture
-app.get("/payment-success", checkAuthenticated, (req, res) => {
-  // If you already have paymentSuccess.ejs, use it
-  res.render("paymentSuccess", { user: req.session.user });
-});
+// PayPal success page
+app.get("/paypal/success", checkAuthenticated, (req, res) => {
+  syncCartFromDB(req, () => {
+    const cart = req.session.cart || [];
+    const total = calcCartTotal(cart);
 
-// ====================== NETS (optional) ======================
-if (netsQr) {
-  app.post("/pay/nets", checkAuthenticated, (req, res) => netsQr.generateQrCode(req, res));
-  app.get("/nets-qr/fail", checkAuthenticated, (req, res) => {
-    res.render("netsQrFail", {
-      title: "Payment Failed",
-      errorMsg: "Payment failed or was cancelled.",
-      responseCode: "N.A.",
-      instructions: "",
+    // Clear cart after successful payment
+    CartDB.clearCart(req.session.user.id, () => {
+      req.session.cart = [];
+      res.render("paymentSuccess", { user: req.session.user, cart, total });
     });
   });
+});
+
+// ====================== NETS (OPTIONAL) ======================
+
+if (netsQr) {
+  app.post("/pay/nets", checkAuthenticated, (req, res) => netsQr.generateQrCode(req, res));
 }
 
 // ====================== SERVER START ======================
+
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
