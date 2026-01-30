@@ -11,126 +11,39 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/css/style.css" />
     <style>
-        body {
-            background: #f7f7f7;
-            font-family: Arial, Helvetica, sans-serif;
-        }
-
+        body { background: #f7f7f7; font-family: Arial, Helvetica, sans-serif; }
         .cart-container {
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 25px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            max-width: 900px; margin: 40px auto; padding: 25px; background: white;
+            border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);
         }
-
-        h1 {
-            font-size: 32px;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 8px;
-        }
-
-        .welcome-text {
-            text-align: center;
-            color: #666;
-            margin-bottom: 20px;
-        }
-
-        table {
-            width: 100%;
-            margin-bottom: 20px;
-        }
-
-        td img {
-            border-radius: 8px;
-        }
-
-        input[type="number"] {
-            width: 70px;
-            padding: 5px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-        }
-
-        .remove-btn {
-            background: #d9534f;
-            border: none;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        .remove-btn:hover {
-            background: #c9302c;
-        }
-
-        .cart-summary {
-            text-align: right;
-            margin-top: 20px;
-        }
-
-        .total-text {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 15px;
-        }
-
-        .checkout-btn {
-            background: #005EB8;
-            border: none;
-            color: white;
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-size: 16px;
-            margin-right: 8px;
-        }
-
-        .checkout-btn:hover {
-            background: #004a94;
-        }
-
-        .clear-btn {
-            background: #777;
-            border: none;
-            color: white;
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-size: 16px;
-            margin-right: 8px;
-        }
-
-        .clear-btn:hover {
-            background: #555;
-        }
-
-        .continue-link {
-            font-size: 16px;
-            text-decoration: none;
-            color: #005EB8;
-            font-weight: bold;
-        }
-
-        .continue-link:hover {
-            text-decoration: underline;
-        }
+        h1 { font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+        .welcome-text { text-align: center; color: #666; margin-bottom: 20px; }
+        table { width: 100%; margin-bottom: 20px; }
+        td img { border-radius: 8px; }
+        input[type="number"] { width: 70px; padding: 5px; border-radius: 6px; border: 1px solid #ccc; }
+        .remove-btn { background: #d9534f; border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 14px; }
+        .remove-btn:hover { background: #c9302c; }
+        .cart-summary { text-align: right; margin-top: 20px; }
+        .total-text { font-size: 20px; font-weight: bold; margin-bottom: 15px; }
+        .checkout-btn { background: #005EB8; border: none; color: white; padding: 10px 18px; border-radius: 8px; font-size: 16px; margin-right: 8px; text-decoration: none; display:inline-block; }
+        .checkout-btn:hover { background: #004a94; color:#fff; }
+        .clear-btn { background: #777; border: none; color: white; padding: 10px 18px; border-radius: 8px; font-size: 16px; margin-right: 8px; }
+        .clear-btn:hover { background: #555; }
+        .continue-link { font-size: 16px; text-decoration: none; color: #005EB8; font-weight: bold; }
+        .continue-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
     <%- include('partials/header', { user: user }) %>
 
-
     <div class="cart-container">
-
         <h1>Your Cart</h1>
 
         <% if (user) { %>
             <p class="welcome-text">Welcome, <%= user.username || user.name || "User" %></p>
         <% } %>
 
-        <!-- 🔴 ERROR MESSAGES (e.g. out of stock) -->
+        <!-- 🔴 ERROR MESSAGES -->
         <% if (errors && errors.length) { %>
             <div class="alert alert-danger">
                 <% errors.forEach(function(e){ %>
@@ -149,10 +62,8 @@
         <% } %>
 
         <% if (!cart || cart.length === 0) { %>
-
             <p>Your cart is empty.</p>
             <a href="/shopping" class="continue-link">Continue shopping</a>
-
         <% } else { %>
 
         <table class="table table-bordered">
@@ -206,16 +117,10 @@
                 $<%= cart.reduce((sum, i) => sum + i.price * i.quantity, 0).toFixed(2) %>
             </p>
 
-        <div class="cart-summary">
-            <p class="total-text">
-                Total:
-                $<%= cart.reduce((sum, i) => sum + i.price * i.quantity, 0).toFixed(2) %>
-            </p>
+            <!-- ✅ IMPORTANT: go to GET /checkout to show invoice + PayPal -->
+            <a href="/checkout" class="checkout-btn">Proceed to Checkout</a>
 
-            <form action="/checkout" method="post" style="display:inline">
-                <button type="submit" class="checkout-btn">Checkout</button>
-            </form>
-
+            <!-- optional: keep nets button if you want -->
             <form action="/pay/nets" method="post" style="display:inline">
                 <button type="submit" class="checkout-btn" style="background: #1abc9c;">Pay with NETS QR</button>
             </form>
@@ -228,16 +133,12 @@
         </div>
 
         <% } %>
-
     </div>
 
     <script>
-    document.querySelectorAll('input[name="quantity"]').forEach(input => {
-        input.addEventListener('change', () => {
-            input.form.submit();
-        });
-    });
-</script>
-
+      document.querySelectorAll('input[name="quantity"]').forEach(input => {
+        input.addEventListener('change', () => input.form.submit());
+      });
+    </script>
 </body>
 </html>

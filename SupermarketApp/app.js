@@ -1,5 +1,3 @@
-// ====================== SETUP ======================
-
 const express = require('express');
 const path = require('path');
 const app = express();
@@ -8,11 +6,10 @@ const connection = require('./db');
 const session = require('express-session');
 const flash = require('connect-flash');
 const multer = require('multer');
-
 require('dotenv').config();
 
-// ✅ optional NETS (you can delete later if you want)
-const netsQr = require('./services/nets');
+const paypal = require('./services/paypal');
+const netsQr = require('./services/nets'); // optional
 
 // Controllers
 const ProductController = require('./controllers/ProductController');
@@ -21,7 +18,6 @@ const FeedbackController = require('./controllers/FeedbackController');
 const CartDB = require('./models/CartDB');
 
 // ====================== MULTER (IMAGE UPLOAD) ======================
-
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, 'public/images')),
   filename: (req, file, cb) => cb(null, file.originalname)
@@ -29,12 +25,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ====================== APP SETTINGS ======================
-
 app.set('view engine', 'ejs');
-
-// ✅ IMPORTANT: always point to correct views folder
 app.set('views', path.join(__dirname, 'views'));
-
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -44,20 +36,19 @@ app.use(
     secret: 'supermarket-secret',
     resave: false,
     saveUninitialized: true,
-    cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 } // 7 days
+    cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
   })
 );
 
 app.use(flash());
 
-// ✅ Make "user" available in ALL EJS files automatically
+// user in all EJS
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   next();
 });
 
 // ====================== AUTH MIDDLEWARE ======================
-
 const checkAuthenticated = (req, res, next) => {
   if (req.session.user) return next();
   req.flash('error', 'Please log in first.');
@@ -71,18 +62,20 @@ const checkAdmin = (req, res, next) => {
 };
 
 // ====================== CART SYNC (DB → SESSION) ======================
-
 function syncCartFromDB(req, done) {
   if (!req.session.user) {
     req.session.cart = [];
     return done(null);
   }
-
   CartDB.getCart(req.session.user.id, (err, items) => {
     if (err) return done(err);
     req.session.cart = items || [];
     done(null);
   });
+}
+
+function calcCartTotal(cart) {
+  return (cart || []).reduce((sum, i) => sum + Number(i.price) * Number(i.quantity), 0);
 }
 
 // ====================== ROUTES ======================
@@ -95,60 +88,25 @@ app.get('/', (req, res) => {
 // SHOPPING
 app.get('/shopping', checkAuthenticated, ProductController.listAllProducts);
 
-// ✅ LIVE SEARCH SUGGESTIONS (used by shopping.ejs)
-app.get('/search-suggestions', checkAuthenticated, (req, res) => {
-  const term = (req.query.term || '').trim();
-  if (!term) return res.json([]);
-
-  connection.query(
-    'SELECT productName FROM products WHERE productName LIKE ? LIMIT 8',
-    [`%${term}%`],
-    (err, rows) => {
-      if (err) return res.json([]);
-      return res.json(rows.map(r => r.productName));
-    }
-  );
-});
-
 // PRODUCT DETAILS
 app.get('/product/:id', checkAuthenticated, ProductController.getProductById);
 
 // ====================== ADMIN INVENTORY ======================
-
 app.get('/inventory', checkAuthenticated, checkAdmin, ProductController.listAllProducts);
 
 app.get('/addProduct', checkAuthenticated, checkAdmin, (req, res) => {
   res.render('addProduct', { user: req.session.user });
 });
 
-app.post('/addProduct',
-  checkAuthenticated,
-  checkAdmin,
-  upload.single('image'),
-  ProductController.addProduct
-);
+app.post('/addProduct', checkAuthenticated, checkAdmin, upload.single('image'), ProductController.addProduct);
 
-app.get('/updateProduct/:id',
-  checkAuthenticated,
-  checkAdmin,
-  ProductController.renderUpdateProductForm
-);
+app.get('/updateProduct/:id', checkAuthenticated, checkAdmin, ProductController.renderUpdateProductForm);
 
-app.post('/updateProduct/:id',
-  checkAuthenticated,
-  checkAdmin,
-  upload.single('image'),
-  ProductController.updateProduct
-);
+app.post('/updateProduct/:id', checkAuthenticated, checkAdmin, upload.single('image'), ProductController.updateProduct);
 
-app.get('/deleteProduct/:id',
-  checkAuthenticated,
-  checkAdmin,
-  ProductController.deleteProduct
-);
+app.get('/deleteProduct/:id', checkAuthenticated, checkAdmin, ProductController.deleteProduct);
 
 // ====================== HELP CENTRE ======================
-
 app.get('/help', checkAuthenticated, (req, res) => {
   res.render('help', {
     user: req.session.user,
@@ -156,17 +114,14 @@ app.get('/help', checkAuthenticated, (req, res) => {
     errors: req.flash('error')
   });
 });
-
 app.post('/help/feedback', checkAuthenticated, FeedbackController.submitFeedback);
 
-// ====================== FEEDBACK DASHBOARD (ADMIN) ======================
-
+// ADMIN FEEDBACK
 app.get('/admin/feedback', checkAuthenticated, checkAdmin, FeedbackController.listFeedback);
 app.post('/admin/feedback/delete/:id', checkAuthenticated, checkAdmin, FeedbackController.deleteFeedback);
 app.post('/admin/feedback/reply/:id', checkAuthenticated, checkAdmin, FeedbackController.replyFeedback);
 
 // ====================== CART ======================
-
 app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
   const userId = req.session.user.id;
   const productId = parseInt(req.params.id, 10);
@@ -203,7 +158,6 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
   });
 });
 
-// VIEW CART
 app.get('/cart', checkAuthenticated, (req, res) => {
   syncCartFromDB(req, () => {
     res.render('cart', {
@@ -215,7 +169,6 @@ app.get('/cart', checkAuthenticated, (req, res) => {
   });
 });
 
-// UPDATE CART QUANTITY
 app.post('/cart/update', checkAuthenticated, (req, res) => {
   const userId = req.session.user.id;
   const productId = parseInt(req.body.productId, 10);
@@ -239,7 +192,6 @@ app.post('/cart/update', checkAuthenticated, (req, res) => {
   });
 });
 
-// REMOVE ITEM
 app.post('/remove-from-cart/:id', checkAuthenticated, (req, res) => {
   const userId = req.session.user.id;
   const productId = parseInt(req.params.id, 10);
@@ -252,10 +204,8 @@ app.post('/remove-from-cart/:id', checkAuthenticated, (req, res) => {
   });
 });
 
-// CLEAR CART
 app.post('/clear-cart', checkAuthenticated, (req, res) => {
   const userId = req.session.user.id;
-
   CartDB.clearCart(userId, () => {
     req.session.cart = [];
     req.flash('success', 'Cart cleared.');
@@ -263,13 +213,29 @@ app.post('/clear-cart', checkAuthenticated, (req, res) => {
   });
 });
 
-// ====================== AUTH ======================
+// ====================== CHECKOUT PAGE (INVOICE + PAYMENTS) ======================
+app.get('/checkout', checkAuthenticated, (req, res) => {
+  syncCartFromDB(req, () => {
+    const cart = req.session.cart || [];
+    const total = calcCartTotal(cart);
 
-app.get('/register', (req, res) => {
-  res.render('register', {
-    messages: req.flash('error'),
-    formData: req.flash('formData')[0]
+    if (!cart.length) {
+      req.flash('error', 'Your cart is empty.');
+      return res.redirect('/cart');
+    }
+
+    res.render('checkout', {
+      user: req.session.user,
+      cart,
+      total,
+      PAYPAL_CLIENT_ID: process.env.PAYPAL_CLIENT_ID || ''
+    });
   });
+});
+
+// ====================== AUTH ======================
+app.get('/register', (req, res) => {
+  res.render('register', { messages: req.flash('error'), formData: req.flash('formData')[0] });
 });
 
 app.post('/register', (req, res) => {
@@ -287,37 +253,28 @@ app.post('/register', (req, res) => {
 
   connection.query(sql, [username, email, password, address, contact, role], err => {
     if (err) throw err;
-
     req.flash('success', 'Registration successful! Please log in.');
     res.redirect('/login');
   });
 });
 
 app.get('/login', (req, res) => {
-  res.render('login', {
-    messages: req.flash('success'),
-    errors: req.flash('error')
-  });
+  res.render('login', { messages: req.flash('success'), errors: req.flash('error') });
 });
 
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
 
-  const sql = `
-    SELECT * FROM users
-    WHERE email = ? AND password = SHA1(?)
-  `;
-
+  const sql = `SELECT * FROM users WHERE email = ? AND password = SHA1(?)`;
   connection.query(sql, [email, password], (err, results) => {
     if (err) throw err;
 
-    if (results.length === 0) {
+    if (!results.length) {
       req.flash('error', 'Invalid login.');
       return res.redirect('/login');
     }
 
     req.session.user = results[0];
-
     syncCartFromDB(req, () => {
       if (req.session.user.role === 'admin') return res.redirect('/inventory');
       return res.redirect('/shopping');
@@ -330,7 +287,6 @@ app.get('/logout', (req, res) => {
 });
 
 // ====================== ORDERS ======================
-
 app.post('/checkout', checkAuthenticated, (req, res) => {
   syncCartFromDB(req, () => OrderController.checkout(req, res));
 });
@@ -338,26 +294,53 @@ app.post('/checkout', checkAuthenticated, (req, res) => {
 app.get('/orders', checkAuthenticated, OrderController.listUserOrders);
 app.get('/order/:id', checkAuthenticated, OrderController.viewOrder);
 
-// ====================== PAYMENTS (NETS - optional) ======================
+// ====================== PAYPAL API ======================
+app.post('/api/paypal/create-order', checkAuthenticated, async (req, res) => {
+  try {
+    await new Promise(resolve => syncCartFromDB(req, () => resolve()));
+    const cart = req.session.cart || [];
+    const total = calcCartTotal(cart);
 
-app.post('/pay/nets', checkAuthenticated, (req, res) => netsQr.generateQrCode(req, res));
+    if (!cart.length || total <= 0) return res.status(400).json({ error: 'Cart is empty.' });
 
-// You do NOT have netsQrSuccess.ejs, so redirect instead
-app.get('/nets-qr/success', checkAuthenticated, (req, res) => {
-  req.flash('success', 'Payment successful!');
-  res.redirect('/orders');
+    const order = await paypal.createOrder(total.toFixed(2));
+    return res.json({ id: order.id });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to create PayPal order', message: err.message });
+  }
 });
 
-app.get('/nets-qr/fail', checkAuthenticated, (req, res) => {
-  res.render('netsQrFail', {
-    title: 'Payment Failed',
-    errorMsg: 'Payment failed or was cancelled.',
-    responseCode: 'N.A.',
-    instructions: ''
+app.post('/api/paypal/capture-order', checkAuthenticated, async (req, res) => {
+  try {
+    const { orderID } = req.body;
+    if (!orderID) return res.status(400).json({ error: 'Missing orderID' });
+
+    const capture = await paypal.captureOrder(orderID);
+    if (capture.status === 'COMPLETED') return res.json({ status: 'COMPLETED' });
+
+    return res.status(400).json({ error: 'Payment not completed', details: capture });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to capture PayPal order', message: err.message });
+  }
+});
+
+app.get('/paypal/success', checkAuthenticated, (req, res) => {
+  syncCartFromDB(req, () => {
+    const cart = req.session.cart || [];
+    const total = calcCartTotal(cart);
+
+    CartDB.clearCart(req.session.user.id, () => {
+      req.session.cart = [];
+      res.render('paymentSuccess', { user: req.session.user, cart, total });
+    });
   });
 });
 
-// ====================== SERVER START ======================
+// ====================== NETS (optional) ======================
+app.post('/pay/nets', checkAuthenticated, (req, res) => netsQr.generateQrCode(req, res));
 
+// ====================== SERVER START ======================
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
